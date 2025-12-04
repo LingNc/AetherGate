@@ -15,7 +15,7 @@ import org.bukkit.persistence.PersistentDataType;
 
 public final class CustomItems {
 
-    private static final NamespacedKey KEY_TYPE = new NamespacedKey(AetherGatePlugin.getInstance(), "item_type");
+    public static final NamespacedKey KEY_TYPE = new NamespacedKey(AetherGatePlugin.getInstance(), "item_type");
 
     public static final String TYPE_ENDER_INGOT = "ender_ingot";
     public static final String TYPE_WORLD_ANCHOR = "world_anchor";

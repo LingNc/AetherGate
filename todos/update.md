@@ -50,3 +50,34 @@ AltarService now exposes findNearestActiveAnchor and isWithinInteractionRange, b
 TeleportMenuService takes an AetherGatePlugin reference so it can size every book page from config (first page vs subsequent pages) while still showing the status header only once; AetherGatePlugin was updated to pass this.
 CharmCommand now relies entirely on the new range-aware detection: /charm book, /charm travel, and /charm debugtp all look for the nearest registered anchor within the allowed zone (or re-use the locked-in block only if the player remains nearby), and the user feedback includes the current radius.
 TeleportService simply reuses AltarService.isWithinInteractionRange instead of the old rigid check, so any origin provided by the command must still be near the player before the ritual starts.
+
+v1.0.2
+AltarService now owns the new Interaction entities: every time updateVisualState runs it spawns a responsive interaction hitbox that mirrors the conduit’s scale, tracks it via coreInteractions/interactionAnchors, and removes it whenever visuals are torn down or the plugin shuts off. A helper getAnchorFromEntity resolves an interaction back to its lodestone so other systems can recognize which altar was clicked.
+WorldAnchorListener stops opening the teleport book via lodestone clicks; empty-hand block clicks just remind players to touch the hovering core. A new onCoreInteract handler listens for PlayerInteractEntityEvent on the invisible interaction hitbox, cancels the event, and opens the teleport book from there. Charging, activation, and renaming behavior on the block are unchanged.
+Tests not run (needs in-game verification). Please reload the plugin, then confirm:
+
+Right-clicking the lodestone without a charge item only shows the “click the core” tip.
+Clicking the floating core now opens the teleport UI.
+Breaking/destroying an altar or reloading the plugin doesn’t leave invisible hitboxes behind (no ghost interactions when clicking the air).
+Once these checks pass, v1.0.2’s UX change is complete.
+
+fix 1.14
+findNearestActiveAnchor now mirrors the spec’s cubic detection: it skips dormant anchors (zero charges when not infinite) and only snaps to a lodestone when the player is inside the configured cube (radius + 0.5 horizontally, +1.0 vertically to tolerate the player’s height). Distances are measured against the altar core, so whichever anchor is closest within that cube is returned.
+isWithinInteractionRange uses the same cube definition for all consumers: absolute block deltas on X/Y/Z must each be ≤ teleport.interaction-radius, instead of the previous “horizontal only + fixed 5 blocks up” check. This keeps /charm commands and teleport initiation consistent with the new detection.
+
+fix 1.15
+WorldAnchorListener now stamps newly placed lodestones with the world-anchor PDC tag and blocks all interactions (ender ingot activation, charging, renaming, core entity menus) unless that tag exists, so only crafted anchors remain usable.
+AltarService exposes hasAnchorTag, guards activation/recharge flows with it, and reuses the same tolerance math the search routine already used (±radius horizontally, radius+1 vertically) to keep menu access behavior consistent.
+Existing untagged lodestones will be inert until players replace them with properly tagged anchors, matching the spec’s safety requirement.
+Tests not run (not requested).
+
+fix 1.16
+Added an activated flag to Waypoint plus a matching activated column in SqliteStorage; the storage init now auto-migrates older databases and always loads/saves this flag so anchors placed but not yet activated survive restarts.
+registerPlacedAnchor now records world anchors in the DB/cache immediately (charges = 0, activated=false) while attemptActivation, recharge, consumeCharge, and the various query helpers only operate on entries whose isActivated() returns true. All PDC/tile-entity logic has been removed in favor of the registry + helper getOrLoadAnchor, and range/visual logic now ignores unactivated anchors.
+getActiveAltars, findNearestActiveAnchor, consumeCharge, rename/dormant flows, and entity lookups now filter on isActivated() so dormant/placed anchors don’t leak into teleport UX.
+WorldAnchorListener relies solely on AltarService: non-registered lodestones behave like vanilla, activation is the only action allowed on dormant anchors, recharge/rename/menu access stay blocked until activation, and breaking a registered anchor suppresses vanilla drops in favor of CustomItems.createWorldAnchorItem().
+
+fix 1.16.1
+Removed the stray getOrLoadAnchor definition and other pasted fragments that were sitting inside the attemptActivation catch block, which caused the compile/runtime errors you reported.
+Restored the intended activation flow: after persisting the waypoint we now repopulate activeAltars, refresh visuals, play effects, and notify the player; database failures now cleanly exit with an error message.
+Verified that getOrLoadAnchor only exists once (near the end of the class) and all earlier references point to it.

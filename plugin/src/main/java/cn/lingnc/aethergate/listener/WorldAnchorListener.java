@@ -6,6 +6,7 @@ import cn.lingnc.aethergate.teleport.TeleportMenuService;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -13,6 +14,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -31,7 +33,8 @@ public class WorldAnchorListener implements Listener {
     public void onPlace(BlockPlaceEvent event) {
         Block block = event.getBlockPlaced();
         if (block.getType() != Material.LODESTONE) return;
-        if (!CustomItems.isWorldAnchor(event.getItemInHand())) return;
+        ItemStack placedItem = event.getItemInHand();
+        if (!CustomItems.isWorldAnchor(placedItem)) return;
         altarService.registerPlacedAnchor(block.getLocation(), event.getPlayer());
     }
 
@@ -50,14 +53,17 @@ public class WorldAnchorListener implements Listener {
         Block block = event.getClickedBlock();
         if (block == null || block.getType() != Material.LODESTONE) return;
 
+        if (!altarService.isAnchorBlock(block)) {
+            return;
+        }
+
         Player player = event.getPlayer();
         ItemStack held = event.getItem();
-
-        boolean knownAnchor = altarService.isAnchorBlock(block);
+        boolean activatedAnchor = altarService.isActivatedAnchor(block);
 
         if (held != null && CustomItems.isEnderIngot(held)) {
             event.setCancelled(true);
-            if (knownAnchor) {
+            if (activatedAnchor) {
                 player.sendMessage("§e该祭坛已激活，可直接充能。");
             } else {
                 altarService.attemptActivation(player, block);
@@ -66,7 +72,7 @@ public class WorldAnchorListener implements Listener {
             return;
         }
 
-        if (!knownAnchor) {
+        if (!activatedAnchor) {
             event.setCancelled(true);
             player.sendMessage("§c请先用末影锭激活该祭坛。");
             return;
@@ -91,9 +97,7 @@ public class WorldAnchorListener implements Listener {
 
         if (addedCharges == 0) {
             event.setCancelled(true);
-            if (!menuService.openMenu(player, block)) {
-                player.sendMessage("§7请手持矿物块充能，或在有目标时使用空手右键打开目的地名册。");
-            }
+            player.sendMessage("§7请点击悬浮核心打开传送名册，或手持矿物块为祭坛充能。");
             return;
         }
 
@@ -103,13 +107,35 @@ public class WorldAnchorListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
+    public void onCoreInteract(PlayerInteractEntityEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
+        if (!(event.getRightClicked() instanceof Interaction interaction)) return;
+        Block anchor = altarService.getAnchorFromEntity(interaction);
+        if (anchor == null) {
+            return;
+        }
+        if (!altarService.isActivatedAnchor(anchor)) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage("§c该祭坛尚未激活，请先使用末影锭。");
+            return;
+        }
+        event.setCancelled(true);
+        Player player = event.getPlayer();
+        if (!menuService.openMenu(player, anchor)) {
+            player.sendMessage("§c无法打开传送名册，请检查祭坛状态。");
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
     public void onAnchorBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
         if (block.getType() != Material.LODESTONE) return;
         if (!altarService.isAnchorBlock(block)) {
             return;
         }
+        event.setDropItems(false);
         altarService.handleAnchorBreak(block);
+        block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 0.5, 0.5), CustomItems.createWorldAnchorItem());
     }
 
     private int getChargeAmount(ItemStack held) {
@@ -137,4 +163,5 @@ public class WorldAnchorListener implements Listener {
             player.getInventory().setItemInMainHand(stack);
         }
     }
+
 }

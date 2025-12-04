@@ -13,6 +13,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -40,6 +41,8 @@ public class AltarService {
     private final Map<String, UUID> coreDisplays = new HashMap<>();
     private final Map<String, BukkitRunnable> coreEffects = new HashMap<>();
     private final Map<String, Location> coreLights = new HashMap<>();
+    private final Map<String, UUID> coreInteractions = new HashMap<>();
+    private final Map<UUID, String> interactionAnchors = new HashMap<>();
     private final Map<String, Waypoint> activeAltars = new HashMap<>();
     private final Random particleRandom = new Random();
 
@@ -61,10 +64,12 @@ public class AltarService {
                     continue;
                 }
                 Location blockLoc = new Location(world, waypoint.getBlockX(), waypoint.getBlockY(), waypoint.getBlockZ());
-                boolean active = waypoint.isInfinite() || waypoint.getCharges() != 0;
                 String mapKey = key(world.getName(), blockLoc.getBlockX(), blockLoc.getBlockY(), blockLoc.getBlockZ());
                 activeAltars.put(mapKey, waypoint);
-                updateVisualState(blockLoc, active);
+                if (waypoint.isActivated()) {
+                    boolean active = waypoint.isInfinite() || waypoint.getCharges() != 0;
+                    updateVisualState(blockLoc, active);
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().severe("Failed to load existing altars: " + e.getMessage());
@@ -72,9 +77,41 @@ public class AltarService {
     }
 
     public void registerPlacedAnchor(Location loc, Player player) {
+        if (loc == null) {
+            return;
+        }
+        World world = loc.getWorld();
+        if (world == null) {
+            return;
+        }
+        int blockX = loc.getBlockX();
+        int blockY = loc.getBlockY();
+        int blockZ = loc.getBlockZ();
+        String worldName = world.getName();
+        String mapKey = key(worldName, blockX, blockY, blockZ);
+        Waypoint existing = activeAltars.get(mapKey);
+        if (existing == null) {
+            existing = getOrLoadAnchor(loc);
+        }
+        UUID id = existing != null ? existing.getId() : UUID.randomUUID();
+        UUID owner = player != null ? player.getUniqueId()
+                : (existing != null ? existing.getOwner() : UUID.randomUUID());
+        String name = existing != null ? existing.getName() : defaultName(blockX, blockY, blockZ);
+        Waypoint waypoint = new Waypoint(id, name, worldName, blockX, blockY, blockZ, owner, 0, false);
+        try {
+            storage.saveOrUpdateWaypoint(waypoint);
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Failed to register anchor placement: " + e.getMessage());
+            return;
+        }
+        activeAltars.put(mapKey, waypoint);
         if (player != null) {
             player.sendMessage("§7世界锚点已安放，使用末影锭激活它。");
         }
+    }
+
+    private String defaultName(int x, int y, int z) {
+        return "Altar (" + x + "," + y + "," + z + ")";
     }
 
     public boolean isAnchorBlock(Block block) {
@@ -90,6 +127,14 @@ public class AltarService {
         return activeAltars.containsKey(mapKey);
     }
 
+    public boolean isActivatedAnchor(Block block) {
+        if (block == null) {
+            return false;
+        }
+        Waypoint waypoint = getOrLoadAnchor(block.getLocation());
+        return waypoint != null && waypoint.isActivated();
+    }
+
     public void attemptActivation(Player player, Block lodestone) {
         if (lodestone == null) {
             return;
@@ -100,7 +145,14 @@ public class AltarService {
         }
         Location loc = lodestone.getLocation();
         String mapKey = key(world.getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
-        if (activeAltars.containsKey(mapKey)) {
+        Waypoint existingRecord = activeAltars.get(mapKey);
+        if (existingRecord == null) {
+            if (player != null) {
+                player.sendMessage("§c只能激活世界锚点，请重新放置世界锚点方块。");
+            }
+            return;
+        }
+        if (existingRecord.isActivated()) {
             if (player != null) {
                 player.sendMessage("§e该祭坛已激活，可使用矿物块为其充能。");
             }
@@ -116,10 +168,12 @@ public class AltarService {
             return;
         }
 
-        UUID owner = player != null ? player.getUniqueId() : UUID.randomUUID();
-        Waypoint waypoint = new Waypoint(UUID.randomUUID(),
-                "Altar (" + lodestone.getX() + "," + lodestone.getY() + "," + lodestone.getZ() + ")",
-                world.getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), owner, 0);
+        UUID owner = player != null ? player.getUniqueId() : existingRecord.getOwner();
+        String name = existingRecord.getName() != null ? existingRecord.getName()
+                : defaultName(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+        Waypoint waypoint = new Waypoint(existingRecord.getId(),
+                name,
+                world.getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), owner, 0, true);
         try {
             storage.saveOrUpdateWaypoint(waypoint);
         } catch (SQLException e) {
@@ -134,7 +188,7 @@ public class AltarService {
         updateVisualState(loc, false);
         playActivationEffects(world, loc, true, player);
         if (player != null) {
-            player.sendMessage("§a激活成功！现在使用矿物块为祭坛充能。");
+            player.sendMessage("§a激活成功！现在使用末影锭为祭坛充能。");
         }
     }
 
@@ -162,7 +216,8 @@ public class AltarService {
             newCharges = existing.getCharges() + amount;
         }
         Waypoint updated = new Waypoint(existing.getId(), existing.getName(), existing.getWorldName(),
-                existing.getBlockX(), existing.getBlockY(), existing.getBlockZ(), existing.getOwner(), newCharges);
+            existing.getBlockX(), existing.getBlockY(), existing.getBlockZ(), existing.getOwner(), newCharges,
+            existing.isActivated());
         try {
             storage.saveOrUpdateWaypoint(updated);
         } catch (SQLException e) {
@@ -249,6 +304,40 @@ public class AltarService {
             placeCoreLight(mapKey, blockLoc);
             startCoreEffects(mapKey, display.getUniqueId(), displayLoc.clone());
         }
+        spawnInteractionEntity(mapKey, displayLoc.clone(), isActive);
+    }
+
+    private void spawnInteractionEntity(String mapKey, Location center, boolean isActive) {
+        World world = center.getWorld();
+        if (world == null) {
+            return;
+        }
+        float scale = isActive ? 1.5f : 0.9f;
+        float width = Math.max(0.6f, 0.8f * scale);
+        float height = Math.max(1.0f, 1.2f * scale);
+        Interaction interaction = world.spawn(center, Interaction.class, entity -> {
+            entity.setInteractionWidth(width);
+            entity.setInteractionHeight(height);
+            entity.setResponsive(true);
+        });
+        UUID uuid = interaction.getUniqueId();
+        coreInteractions.put(mapKey, uuid);
+        interactionAnchors.put(uuid, mapKey);
+    }
+
+    private void removeInteraction(String mapKey) {
+        UUID uuid = coreInteractions.remove(mapKey);
+        if (uuid == null) {
+            return;
+        }
+        interactionAnchors.remove(uuid);
+        for (World world : Bukkit.getWorlds()) {
+            Entity entity = world.getEntity(uuid);
+            if (entity != null) {
+                entity.remove();
+                break;
+            }
+        }
     }
 
     private void removeVisuals(Location blockLoc) {
@@ -261,6 +350,7 @@ public class AltarService {
         if (uuid == null) {
             cancelCoreEffects(mapKey);
             removeCoreLight(mapKey);
+            removeInteraction(mapKey);
             return;
         }
         Entity entity = world.getEntity(uuid);
@@ -269,6 +359,7 @@ public class AltarService {
         }
         cancelCoreEffects(mapKey);
         removeCoreLight(mapKey);
+        removeInteraction(mapKey);
     }
 
     public void handleAnchorBreak(Block block) {
@@ -305,13 +396,24 @@ public class AltarService {
             }
         });
         coreLights.clear();
+        coreInteractions.values().forEach(uuid -> {
+            for (World world : Bukkit.getWorlds()) {
+                Entity entity = world.getEntity(uuid);
+                if (entity != null) {
+                    entity.remove();
+                }
+            }
+        });
+        coreInteractions.clear();
+        interactionAnchors.clear();
         activeAltars.clear();
     }
 
     public Waypoint getActiveWaypoint(Location loc) {
-        World world = loc.getWorld();
-        if (world == null) return null;
-        return activeAltars.get(key(world.getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ()));
+        if (loc == null) {
+            return null;
+        }
+        return fetchWaypoint(loc);
     }
 
     public Block findNearestActiveAnchor(Location origin) {
@@ -323,25 +425,44 @@ public class AltarService {
             return null;
         }
         int radius = Math.max(0, plugin.getPluginConfig().getInteractionRadius());
+        double px = origin.getX();
+        double py = origin.getY();
+        double pz = origin.getZ();
+        String worldName = world.getName();
+
         Block bestBlock = null;
-        double bestDistance = Double.MAX_VALUE;
+        double minDistSq = Double.MAX_VALUE;
         for (Waypoint waypoint : activeAltars.values()) {
-            if (!world.getName().equalsIgnoreCase(waypoint.getWorldName())) {
+            if (!waypoint.isActivated()) {
                 continue;
             }
-            Block block = world.getBlockAt(waypoint.getBlockX(), waypoint.getBlockY(), waypoint.getBlockZ());
-            if (block.getType() != Material.LODESTONE) {
+            if (!worldName.equalsIgnoreCase(waypoint.getWorldName())) {
                 continue;
             }
-            if (!isWithinInteractionRange(origin, block, radius)) {
+            if (!waypoint.isInfinite() && waypoint.getCharges() == 0) {
                 continue;
             }
-            double dx = (block.getX() + 0.5) - origin.getX();
-            double dy = (block.getY() + 0.5) - origin.getY();
-            double dz = (block.getZ() + 0.5) - origin.getZ();
-            double distSq = dx * dx + dy * dy + dz * dz;
-            if (distSq < bestDistance) {
-                bestDistance = distSq;
+            double coreX = waypoint.getX() + 0.5;
+            double coreY = waypoint.getY();
+            double coreZ = waypoint.getZ() + 0.5;
+
+            if (Math.abs(px - coreX) > radius + 0.5) {
+                continue;
+            }
+            if (Math.abs(pz - coreZ) > radius + 0.5) {
+                continue;
+            }
+            if (Math.abs(py - coreY) > radius + 1.0) {
+                continue;
+            }
+
+            double distSq = origin.distanceSquared(new Location(world, coreX, coreY, coreZ));
+            if (distSq < minDistSq) {
+                Block block = world.getBlockAt(waypoint.getBlockX(), waypoint.getBlockY(), waypoint.getBlockZ());
+                if (block.getType() != Material.LODESTONE) {
+                    continue;
+                }
+                minDistSq = distSq;
                 bestBlock = block;
             }
         }
@@ -364,14 +485,19 @@ public class AltarService {
             return false;
         }
         Location anchorLoc = anchorBlock.getLocation();
-        int dx = Math.abs(origin.getBlockX() - anchorLoc.getBlockX());
-        int dz = Math.abs(origin.getBlockZ() - anchorLoc.getBlockZ());
-        if (dx > radius || dz > radius) {
+        double px = origin.getX();
+        double py = origin.getY();
+        double pz = origin.getZ();
+        double coreX = anchorLoc.getX() + 0.5;
+        double coreY = anchorLoc.getY();
+        double coreZ = anchorLoc.getZ() + 0.5;
+        if (Math.abs(px - coreX) > radius + 0.5) {
             return false;
         }
-        int playerY = origin.getBlockY();
-        int baseY = anchorLoc.getBlockY();
-        return playerY >= baseY && playerY <= baseY + 5;
+        if (Math.abs(pz - coreZ) > radius + 0.5) {
+            return false;
+        }
+        return Math.abs(py - coreY) <= radius + 1.0;
     }
 
     public boolean consumeCharge(Location loc) {
@@ -391,7 +517,8 @@ public class AltarService {
         }
         int newCharges = waypoint.getCharges() - 1;
         Waypoint updated = new Waypoint(waypoint.getId(), waypoint.getName(), waypoint.getWorldName(),
-                waypoint.getX(), waypoint.getY(), waypoint.getZ(), waypoint.getOwner(), newCharges);
+            waypoint.getX(), waypoint.getY(), waypoint.getZ(), waypoint.getOwner(), newCharges,
+            waypoint.isActivated());
         try {
             storage.saveOrUpdateWaypoint(updated);
         } catch (SQLException e) {
@@ -413,7 +540,8 @@ public class AltarService {
             return;
         }
         Waypoint updated = new Waypoint(waypoint.getId(), waypoint.getName(), waypoint.getWorldName(),
-                waypoint.getX(), waypoint.getY(), waypoint.getZ(), waypoint.getOwner(), 0);
+            waypoint.getX(), waypoint.getY(), waypoint.getZ(), waypoint.getOwner(), 0,
+            waypoint.isActivated());
         try {
             storage.saveOrUpdateWaypoint(updated);
         } catch (SQLException e) {
@@ -427,7 +555,13 @@ public class AltarService {
     }
 
     public Collection<Waypoint> getActiveAltars() {
-        return Collections.unmodifiableCollection(new ArrayList<>(activeAltars.values()));
+        List<Waypoint> list = new ArrayList<>();
+        for (Waypoint waypoint : activeAltars.values()) {
+            if (waypoint.isActivated()) {
+                list.add(waypoint);
+            }
+        }
+        return Collections.unmodifiableCollection(list);
     }
 
     public Waypoint findActiveByName(String name) {
@@ -435,6 +569,7 @@ public class AltarService {
             return null;
         }
         return activeAltars.values().stream()
+                .filter(Waypoint::isActivated)
                 .filter(waypoint -> waypoint.getName().equalsIgnoreCase(name))
                 .findFirst()
                 .orElse(null);
@@ -445,6 +580,7 @@ public class AltarService {
             return null;
         }
         return activeAltars.values().stream()
+                .filter(Waypoint::isActivated)
                 .filter(waypoint -> waypoint.getId().equals(id))
                 .findFirst()
                 .orElse(null);
@@ -472,7 +608,8 @@ public class AltarService {
             return false;
         }
         Waypoint updated = new Waypoint(waypoint.getId(), trimmed, waypoint.getWorldName(),
-                waypoint.getX(), waypoint.getY(), waypoint.getZ(), waypoint.getOwner(), waypoint.getCharges());
+            waypoint.getX(), waypoint.getY(), waypoint.getZ(), waypoint.getOwner(), waypoint.getCharges(),
+            waypoint.isActivated());
         try {
             storage.saveOrUpdateWaypoint(updated);
         } catch (SQLException e) {
@@ -489,18 +626,56 @@ public class AltarService {
         return true;
     }
 
+    public Block getAnchorFromEntity(Entity entity) {
+        if (entity == null) {
+            return null;
+        }
+        String mapKey = interactionAnchors.get(entity.getUniqueId());
+        if (mapKey == null) {
+            return null;
+        }
+        Waypoint waypoint = activeAltars.get(mapKey);
+        if (waypoint == null || !waypoint.isActivated()) {
+            return null;
+        }
+        World world = Bukkit.getWorld(waypoint.getWorldName());
+        if (world == null) {
+            return null;
+        }
+        return world.getBlockAt(waypoint.getBlockX(), waypoint.getBlockY(), waypoint.getBlockZ());
+    }
+
     private Waypoint fetchWaypoint(Location loc) {
+                    Waypoint waypoint = getOrLoadAnchor(loc);
+                    if (waypoint == null || !waypoint.isActivated()) {
+                        return null;
+                    }
+                    return waypoint;
+    }
+
+    private Waypoint getOrLoadAnchor(Location loc) {
+        if (loc == null) {
+            return null;
+        }
         World world = loc.getWorld();
         if (world == null) {
             return null;
         }
-        String mapKey = key(world.getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+        int x = loc.getBlockX();
+        int y = loc.getBlockY();
+        int z = loc.getBlockZ();
+        String worldName = world.getName();
+        String mapKey = key(worldName, x, y, z);
         Waypoint waypoint = activeAltars.get(mapKey);
         if (waypoint != null) {
             return waypoint;
         }
         try {
-            return storage.findByLocation(world.getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+            Waypoint loaded = storage.findByLocation(worldName, x, y, z);
+            if (loaded != null) {
+                activeAltars.put(mapKey, loaded);
+            }
+            return loaded;
         } catch (SQLException e) {
             plugin.getLogger().severe("Failed to load waypoint: " + e.getMessage());
             return null;

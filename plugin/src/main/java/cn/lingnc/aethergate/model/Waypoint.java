@@ -16,10 +16,11 @@ public class Waypoint {
     private final double z;
     private final UUID owner;
     private final int charges;
+    private final boolean activated;
 
     // charges < 0 表示无限 (NETHER_STAR)
 
-    public Waypoint(UUID id, String name, String worldName, double x, double y, double z, UUID owner, int charges) {
+    public Waypoint(UUID id, String name, String worldName, double x, double y, double z, UUID owner, int charges, boolean activated) {
         this.id = id;
         this.name = name;
         this.worldName = worldName;
@@ -28,6 +29,7 @@ public class Waypoint {
         this.z = z;
         this.owner = owner;
         this.charges = charges;
+        this.activated = activated;
     }
 
     public UUID getId() {
@@ -76,6 +78,10 @@ public class Waypoint {
 
     public boolean isInfinite() {
         return charges < 0;
+    }
+
+    public boolean isActivated() {
+        return activated;
     }
 
     public Location toLocation() {
