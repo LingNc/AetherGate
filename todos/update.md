@@ -81,3 +81,18 @@ fix 1.16.1
 Removed the stray getOrLoadAnchor definition and other pasted fragments that were sitting inside the attemptActivation catch block, which caused the compile/runtime errors you reported.
 Restored the intended activation flow: after persisting the waypoint we now repopulate activeAltars, refresh visuals, play effects, and notify the player; database failures now cleanly exit with an error message.
 Verified that getOrLoadAnchor only exists once (near the end of the class) and all earlier references point to it.
+
+v1.0.3
+
+fix 1.17
+AltarMaterialSet now keeps a Map<Material, Material> from every supported brick (vanilla, mossy/cracked variants, prismarine, mud, quartz, 1.21 tuff/resin, etc.) to its matching stair while leaving the light whitelist untouched.
+AltarStructureChecker pulls the stair type directly from the material set, eliminating the old switch and letting any mapped base automatically validate both floor and stairs; stair orientation checks still run as before.
+Bumped the plugin to version 1.0.3 across pom.xml, dependency-reduced-pom.xml, and plugin.yml.
+
+fix 1.18
+updateVisualState now purges any lingering item displays at the altar location before spawning a fresh one, and the new ItemDisplay is marked setPersistent(false) so it won’t be written to disk and respawned by vanilla after restarts.
+spawnInteractionEntity uses the same cleanup + non-persistence strategy for the Interaction hitbox, preventing duplicate/ghost entities from stock chunk loading.
+Added clearOldEntities(Location, Class<?>) to encapsulate the cleanup, ensuring legacy “ghost” cores are removed automatically when the plugin rebuilds visuals.
+
+fix 1.19
+Updated loadExistingAltars to only spawn visuals when the owning chunk is loaded, preventing chunkless ghost entities during startup, and added onChunkLoad in AltarService plus a corresponding ChunkLoadEvent listener so visuals appear automatically once their chunks enter memory. No automated tests run; consider a quick local start to confirm visuals pop in when walking into previously unloaded altar chunks.

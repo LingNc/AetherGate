@@ -33,11 +33,12 @@ public final class AltarStructureChecker {
 
         Block centerBelow2 = origin.clone().add(0, -2, 0).getBlock();
         Material baseType = centerBelow2.getType();
+
         if (!AltarMaterialSet.isBaseBrick(baseType)) {
             errors.add(String.format("y-2 的中心方块类型应为许可砖块，当前为 %s", baseType));
             return AltarValidationResult.failure(errors);
         }
-        // Base layer y-2: 5x5 of same brick type A
+
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 Block b = origin.clone().add(dx, -2, dz).getBlock();
@@ -48,15 +49,15 @@ public final class AltarStructureChecker {
             }
         }
 
-        // Container layer y-1 center barrel
         Block barrelBlock = origin.clone().add(0, -1, 0).getBlock();
         if (barrelBlock.getType() != Material.BARREL) {
             errors.add(String.format("核心下方 (y-1) 应为 BARREL，当前为 %s", barrelBlock.getType()));
         }
 
-        Material stairType = getStairForBase(baseType);
-        if (stairType == Material.AIR) {
-            errors.add("未找到与所选底座砖匹配的楼梯类型。");
+        Material stairType = AltarMaterialSet.getStair(baseType);
+
+        if (stairType == null || stairType == Material.AIR) {
+            errors.add("未找到与所选底座砖 (" + baseType + ") 匹配的楼梯类型。");
         } else {
             checkStair(origin, -1, -2, stairType, BlockFace.EAST, errors);
             checkStair(origin, 1, -2, stairType, BlockFace.WEST, errors);
@@ -68,7 +69,6 @@ public final class AltarStructureChecker {
             checkStair(origin, 1, 2, stairType, BlockFace.WEST, errors);
         }
 
-        // Corners at layer -1 must be base bricks (support pillars)
         for (int dx : new int[]{-2, 2}) {
             for (int dz : new int[]{-2, 2}) {
                 Block pillarBase = origin.clone().add(dx, -1, dz).getBlock();
@@ -79,7 +79,6 @@ public final class AltarStructureChecker {
             }
         }
 
-        // Pillar tops with lights at y+2 corners
         for (int dx : new int[]{-2, 2}) {
             for (int dz : new int[]{-2, 2}) {
                 Block lightBlock = origin.clone().add(dx, 2, dz).getBlock();
@@ -124,18 +123,6 @@ public final class AltarStructureChecker {
             case EAST -> BlockFace.WEST;
             case WEST -> BlockFace.EAST;
             default -> face;
-        };
-    }
-
-    private static Material getStairForBase(Material base) {
-        return switch (base) {
-            case QUARTZ_BRICKS -> Material.QUARTZ_STAIRS;
-            case POLISHED_BLACKSTONE_BRICKS -> Material.POLISHED_BLACKSTONE_BRICK_STAIRS;
-            case NETHER_BRICKS -> Material.NETHER_BRICK_STAIRS;
-            case RED_NETHER_BRICKS -> Material.RED_NETHER_BRICK_STAIRS;
-            case DEEPSLATE_BRICKS -> Material.DEEPSLATE_BRICK_STAIRS;
-            case DEEPSLATE_TILES -> Material.DEEPSLATE_TILE_STAIRS;
-            default -> Material.AIR;
         };
     }
 }

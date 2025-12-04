@@ -1,10 +1,10 @@
 package cn.lingnc.aethergate.altar;
 
 import cn.lingnc.aethergate.AetherGatePlugin;
-import cn.lingnc.aethergate.altar.AltarMaterialSet;
 import cn.lingnc.aethergate.model.Waypoint;
 import cn.lingnc.aethergate.storage.SqliteStorage;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -66,13 +66,42 @@ public class AltarService {
                 Location blockLoc = new Location(world, waypoint.getBlockX(), waypoint.getBlockY(), waypoint.getBlockZ());
                 String mapKey = key(world.getName(), blockLoc.getBlockX(), blockLoc.getBlockY(), blockLoc.getBlockZ());
                 activeAltars.put(mapKey, waypoint);
-                if (waypoint.isActivated()) {
+                if (!waypoint.isActivated()) {
+                    continue;
+                }
+                int chunkX = blockLoc.getBlockX() >> 4;
+                int chunkZ = blockLoc.getBlockZ() >> 4;
+                if (world.isChunkLoaded(chunkX, chunkZ)) {
                     boolean active = waypoint.isInfinite() || waypoint.getCharges() != 0;
                     updateVisualState(blockLoc, active);
                 }
             }
         } catch (SQLException e) {
             plugin.getLogger().severe("Failed to load existing altars: " + e.getMessage());
+        }
+    }
+
+    public void onChunkLoad(Chunk chunk) {
+        if (chunk == null) {
+            return;
+        }
+        World world = chunk.getWorld();
+        String worldName = world.getName();
+        int chunkX = chunk.getX();
+        int chunkZ = chunk.getZ();
+        for (Waypoint waypoint : activeAltars.values()) {
+            if (!waypoint.isActivated()) {
+                continue;
+            }
+            if (!waypoint.getWorldName().equals(worldName)) {
+                continue;
+            }
+            if ((waypoint.getBlockX() >> 4) != chunkX || (waypoint.getBlockZ() >> 4) != chunkZ) {
+                continue;
+            }
+            Location blockLoc = new Location(world, waypoint.getBlockX(), waypoint.getBlockY(), waypoint.getBlockZ());
+            boolean active = waypoint.isInfinite() || waypoint.getCharges() != 0;
+            updateVisualState(blockLoc, active);
         }
     }
 
@@ -289,9 +318,11 @@ public class AltarService {
         removeVisuals(blockLoc);
         double height = isActive ? 2.0 : 1.6;
         Location displayLoc = blockLoc.clone().add(0.5, height, 0.5);
+        clearOldEntities(displayLoc, ItemDisplay.class);
         ItemDisplay display = world.spawn(displayLoc, ItemDisplay.class, d -> {
             d.setItemStack(new ItemStack(org.bukkit.Material.CONDUIT));
             d.setBillboard(Display.Billboard.CENTER);
+            d.setPersistent(false);
             float scale = isActive ? 1.5f : 0.9f;
             d.setTransformation(new Transformation(new Vector3f(0f, 0f, 0f),
                 d.getTransformation().getLeftRotation(),
@@ -312,6 +343,7 @@ public class AltarService {
         if (world == null) {
             return;
         }
+        clearOldEntities(center, Interaction.class);
         float scale = isActive ? 1.5f : 0.9f;
         float width = Math.max(0.6f, 0.8f * scale);
         float height = Math.max(1.0f, 1.2f * scale);
@@ -319,10 +351,27 @@ public class AltarService {
             entity.setInteractionWidth(width);
             entity.setInteractionHeight(height);
             entity.setResponsive(true);
+            entity.setPersistent(false);
         });
         UUID uuid = interaction.getUniqueId();
         coreInteractions.put(mapKey, uuid);
         interactionAnchors.put(uuid, mapKey);
+    }
+
+    private void clearOldEntities(Location location, Class<? extends Entity> clazz) {
+        if (location == null) {
+            return;
+        }
+        World world = location.getWorld();
+        if (world == null) {
+            return;
+        }
+        Collection<Entity> nearby = world.getNearbyEntities(location, 0.5, 0.5, 0.5);
+        for (Entity entity : nearby) {
+            if (clazz.isInstance(entity)) {
+                entity.remove();
+            }
+        }
     }
 
     private void removeInteraction(String mapKey) {

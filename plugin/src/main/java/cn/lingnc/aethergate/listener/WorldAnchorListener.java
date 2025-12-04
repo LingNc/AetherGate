@@ -15,6 +15,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -27,6 +28,11 @@ public class WorldAnchorListener implements Listener {
     public WorldAnchorListener(AltarService altarService, TeleportMenuService menuService) {
         this.altarService = altarService;
         this.menuService = menuService;
+    }
+
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        altarService.onChunkLoad(event.getChunk());
     }
 
     @EventHandler(ignoreCancelled = true)
