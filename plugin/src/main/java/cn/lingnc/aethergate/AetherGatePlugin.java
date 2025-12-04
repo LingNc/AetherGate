@@ -42,7 +42,7 @@ public class AetherGatePlugin extends JavaPlugin {
         this.altarService = new AltarService(this);
         altarService.loadExistingAltars();
         this.teleportService = new TeleportService(this, altarService);
-        this.teleportMenuService = new TeleportMenuService(altarService);
+        this.teleportMenuService = new TeleportMenuService(this, altarService);
         getServer().getPluginManager().registerEvents(new WorldAnchorListener(altarService, teleportMenuService), this);
         getServer().getPluginManager().registerEvents(new TeleportListener(teleportService), this);
         CharmCommand charmCommand = new CharmCommand(this, altarService, teleportService, teleportMenuService);

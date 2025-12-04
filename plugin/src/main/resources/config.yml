@@ -1,0 +1,24 @@
+# AetherGate Configuration
+
+altar:
+  # 寻找附近祭坛的距离 (用于指令检测)
+  search-radius: 5
+
+  # 祭坛炸膛时的爆炸威力 (0.0 为无伤害)
+  # 注意：此爆炸默认不破坏方块 (blockDamage=false)，但会伤害实体
+  backfire-power: 6.0
+
+teleport:
+  # 抵达目标祭坛时，寻找安全落点的半径
+  # 默认 2 (即以核心为中心 -2 到 +2 的 5x5 范围)
+  arrival-radius: 2
+
+  # 启动传送或打开名册时，允许玩家距离祭坛核心的水平范围
+  # 例如 2 表示以祭坛为中心 (-2,+2) 的 5x5 区域
+  interaction-radius: 2
+
+  menu:
+    # 传送名册第一页显示的目的地数量
+    first-page-entries: 4
+    # 传送名册后续每页显示的目的地数量
+    other-page-entries: 7

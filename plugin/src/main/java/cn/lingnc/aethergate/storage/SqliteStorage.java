@@ -35,10 +35,10 @@ public class SqliteStorage {
         return DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
     }
 
-    public List<Waypoint> loadActiveWaypoints() throws SQLException {
+    public List<Waypoint> loadAllWaypoints() throws SQLException {
         List<Waypoint> list = new ArrayList<>();
-           try (Connection conn = getConnection();
-               PreparedStatement ps = conn.prepareStatement("SELECT * FROM waypoints WHERE charges <> 0")) {
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT * FROM waypoints")) {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 UUID id = UUID.fromString(rs.getString("uuid"));

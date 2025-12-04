@@ -6,7 +6,6 @@ import cn.lingnc.aethergate.item.CustomItems;
 import cn.lingnc.aethergate.model.Waypoint;
 import cn.lingnc.aethergate.teleport.TeleportMenuService;
 import cn.lingnc.aethergate.teleport.TeleportService;
-import org.bukkit.FluidCollisionMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
@@ -65,11 +64,11 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
     private boolean handleList(CommandSender sender) {
         List<Waypoint> active = new ArrayList<>(altarService.getActiveAltars());
         if (active.isEmpty()) {
-            sender.sendMessage("§e当前没有激活的世界锚点。");
+            sender.sendMessage("§e当前没有登记的世界锚点。");
             return true;
         }
         active.sort(Comparator.comparing(w -> w.getName().toLowerCase(Locale.ROOT)));
-        sender.sendMessage("§b==== 激活中的世界锚点 ====");
+        sender.sendMessage("§b==== 已登记的世界锚点 ====");
         active.forEach(waypoint -> sender.sendMessage(String.format("§f- %s §7(%s %d %d %d) §a剩余:%s",
                 waypoint.getName(), waypoint.getWorldName(), waypoint.getBlockX(), waypoint.getBlockY(), waypoint.getBlockZ(),
                 waypoint.isInfinite() ? "∞" : waypoint.getCharges())));
@@ -77,9 +76,10 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleBook(Player player) {
-        Block origin = findAnchorInSight(player);
+        Block origin = altarService.findNearestActiveAnchor(player.getLocation());
         if (origin == null) {
-            player.sendMessage("§c请面对或站在一个已激活的世界锚点。");
+            int radius = plugin.getPluginConfig().getInteractionRadius();
+            player.sendMessage("§c请站在距离祭坛不超过 " + radius + " 格的范围内。");
             return true;
         }
         menuService.openMenu(player, origin);
@@ -99,13 +99,12 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
         }
         Block origin = locateOrigin(player);
         if (origin == null) {
-            player.sendMessage("§c请再次与世界锚点交互以锁定传送仪式。");
+            int radius = plugin.getPluginConfig().getInteractionRadius();
+            player.sendMessage("§c请靠近祭坛 (水平 " + radius + " 格内) 并重新尝试。");
             return true;
         }
         if (teleportService.beginTeleport(player, origin, destination)) {
             menuService.clearPendingOrigin(player.getUniqueId());
-        } else {
-            player.sendMessage("§c无法开始传送，请检查能量、容器或结构。");
         }
         return true;
     }
@@ -181,14 +180,13 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
             player.sendMessage("§c找不到激活中的锚点: " + targetName);
             return true;
         }
-        Block origin = findAnchorInSight(player);
+        Block origin = altarService.findNearestActiveAnchor(player.getLocation());
         if (origin == null) {
-            player.sendMessage("§c请面对或站在一个已激活的世界锚点。");
+            int radius = plugin.getPluginConfig().getInteractionRadius();
+            player.sendMessage("§c请靠近一个已激活的世界锚点 (<= " + radius + " 格)。");
             return true;
         }
-        if (!teleportService.beginTeleport(player, origin, destination)) {
-            player.sendMessage("§c无法开始传送，请检查能量与结构。");
-        }
+        teleportService.beginTeleport(player, origin, destination);
         return true;
     }
 
@@ -209,30 +207,16 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
         var pending = menuService.getPendingOrigin(player.getUniqueId());
         if (pending != null) {
             Block stored = pending.getBlock();
-            if (stored.getType() == Material.LODESTONE && altarService.isAnchorBlock(stored)) {
+            if (stored.getType() == Material.LODESTONE
+                    && altarService.isAnchorBlock(stored)
+                    && altarService.isWithinInteractionRange(player.getLocation(), stored)) {
                 origin = stored;
             }
         }
         if (origin == null) {
-            origin = findAnchorInSight(player);
+            origin = altarService.findNearestActiveAnchor(player.getLocation());
         }
         return origin;
-    }
-
-    private Block findAnchorInSight(Player player) {
-        Block target = player.getTargetBlockExact(5, FluidCollisionMode.NEVER);
-        if (target != null && target.getType() == Material.LODESTONE && altarService.isAnchorBlock(target)) {
-            return target;
-        }
-        Block feet = player.getLocation().getBlock();
-        if (feet.getType() == Material.LODESTONE && altarService.isAnchorBlock(feet)) {
-            return feet;
-        }
-        Block below = feet.getRelative(0, -1, 0);
-        if (below.getType() == Material.LODESTONE && altarService.isAnchorBlock(below)) {
-            return below;
-        }
-        return null;
     }
 
     private boolean requirePlayer(CommandSender sender, Function<Player, Boolean> action) {

@@ -40,21 +40,25 @@ echo "Building Plugin..."
 # Construct expected Jar path based on Maven conventions
 # ArtifactId is 'aether-gate' based on the provided pom.xml
 EXPECTED_JAR_NAME="aether-gate-${VERSION}.jar"
-PLUGIN_JAR_PATH="$PLUGIN_MODULE/target/$EXPECTED_JAR_NAME"
+UNSHADED_JAR_PATH="$PLUGIN_MODULE/target/original-$EXPECTED_JAR_NAME"
 
-# Fallback: If exact version match fails (e.g. if version parsing failed), find the shaded jar
-if [[ ! -f "$PLUGIN_JAR_PATH" ]]; then
-  # Find any .jar in target that does NOT start with 'original-' (created by shade plugin)
-  PLUGIN_JAR_PATH=$(find "$PLUGIN_MODULE/target" -maxdepth 1 -name "*.jar" ! -name "original-*" | head -n 1)
+# Prefer the unshaded jar (original-*) to keep dependencies out of the final artifact
+if [[ ! -f "$UNSHADED_JAR_PATH" ]]; then
+  UNSHADED_JAR_PATH=$(find "$PLUGIN_MODULE/target" -maxdepth 1 -name "original-*.jar" | head -n 1 || true)
 fi
 
-if [[ ! -f "$PLUGIN_JAR_PATH" || -z "$PLUGIN_JAR_PATH" ]]; then
+# If all else fails, fall back to any jar (last resort)
+if [[ -z "$UNSHADED_JAR_PATH" || ! -f "$UNSHADED_JAR_PATH" ]]; then
+  UNSHADED_JAR_PATH=$(find "$PLUGIN_MODULE/target" -maxdepth 1 -name "*.jar" ! -name "original-*" | head -n 1 || true)
+fi
+
+if [[ -z "$UNSHADED_JAR_PATH" || ! -f "$UNSHADED_JAR_PATH" ]]; then
   echo "ERROR: Plugin jar not found in $PLUGIN_MODULE/target/" >&2
   exit 1
 fi
 
 PLUGIN_FINAL_NAME="AetherGate_Plugin_${VERSION}.jar"
-cp "$PLUGIN_JAR_PATH" "$BUILD_DIR/$PLUGIN_FINAL_NAME"
+cp "$UNSHADED_JAR_PATH" "$BUILD_DIR/$PLUGIN_FINAL_NAME"
 
 # ---------------------------------------------------------
 # 3. Build Resource Pack

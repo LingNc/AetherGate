@@ -1,5 +1,6 @@
 package cn.lingnc.aethergate.teleport;
 
+import cn.lingnc.aethergate.AetherGatePlugin;
 import cn.lingnc.aethergate.altar.AltarService;
 import cn.lingnc.aethergate.model.Waypoint;
 import net.kyori.adventure.text.Component;
@@ -24,14 +25,15 @@ import java.util.UUID;
 
 public class TeleportMenuService {
 
-    private static final int ENTRIES_PER_PAGE = 2;
     private static final int PAGE_WIDTH = 20;
 
+    private final AetherGatePlugin plugin;
     private final AltarService altarService;
     private final Map<UUID, Location> pendingOrigins = new HashMap<>();
     private final PearlCostManager costProbe = new PearlCostManager();
 
-    public TeleportMenuService(AltarService altarService) {
+    public TeleportMenuService(AetherGatePlugin plugin, AltarService altarService) {
+        this.plugin = plugin;
         this.altarService = altarService;
     }
 
@@ -53,7 +55,8 @@ public class TeleportMenuService {
             return false;
         }
         active.sort(Comparator.comparing(w -> w.getName().toLowerCase(Locale.ROOT)));
-        boolean ready = costProbe.hasAvailableFuel(originBlock.getLocation(), player);
+        boolean hasCharge = originWaypoint != null && (originWaypoint.isInfinite() || originWaypoint.getCharges() > 0);
+        boolean ready = hasCharge && costProbe.hasAvailableFuel(originBlock.getLocation(), player);
         ItemStack book = buildBook(active, originWaypoint, ready);
         if (book == null) {
             player.sendMessage("§c无法生成传送名册，请联系管理员。");
@@ -96,9 +99,17 @@ public class TeleportMenuService {
             return pages;
         }
         int index = 0;
+        int firstPageEntries = Math.max(1, plugin.getPluginConfig().getMenuFirstPageEntries());
+        Component firstPage = Component.empty().append(header);
+        for (int count = 0; count < firstPageEntries && index < waypoints.size(); count++, index++) {
+            firstPage = firstPage.append(buildEntry(waypoints.get(index)));
+        }
+        pages.add(firstPage);
+
+        int otherPageEntries = Math.max(1, plugin.getPluginConfig().getMenuOtherPageEntries());
         while (index < waypoints.size()) {
-            Component page = Component.empty().append(header);
-            for (int count = 0; count < ENTRIES_PER_PAGE && index < waypoints.size(); count++, index++) {
+            Component page = Component.empty();
+            for (int count = 0; count < otherPageEntries && index < waypoints.size(); count++, index++) {
                 page = page.append(buildEntry(waypoints.get(index)));
             }
             pages.add(page);
@@ -136,7 +147,7 @@ public class TeleportMenuService {
     private Component buildEntry(Waypoint waypoint) {
         String charges = waypoint.isInfinite() ? "∞" : String.valueOf(waypoint.getCharges());
         String command = "/charm travel " + waypoint.getId();
-        String locString = String.format("%s (%d, %d, %d)",
+        String locString = String.format("(%s: %d, %d, %d)",
             waypoint.getWorldName(), waypoint.getBlockX(), waypoint.getBlockY(), waypoint.getBlockZ());
         Component hover = Component.text()
             .append(Component.text("点击前往 ", NamedTextColor.GRAY))

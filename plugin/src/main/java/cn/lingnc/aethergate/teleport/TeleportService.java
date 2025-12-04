@@ -63,12 +63,20 @@ public class TeleportService {
             player.sendMessage("§c附近没有可用的世界锚点。");
             return false;
         }
+        if (!altarService.isWithinInteractionRange(player.getLocation(), originBlock)) {
+            player.sendMessage("§c请在祭坛附近启动传送。");
+            return false;
+        }
         if (!ensureStructureIntegrity(originBlock, player, true)) {
             return false;
         }
         Waypoint originWaypoint = altarService.getActiveWaypoint(originBlock.getLocation());
         if (originWaypoint == null) {
             player.sendMessage("§c这个世界锚点尚未激活或已枯竭。");
+            return false;
+        }
+        if (!originWaypoint.isInfinite() && originWaypoint.getCharges() <= 0) {
+            player.sendMessage("§c祭坛处于休眠状态，请先重新充能。");
             return false;
         }
         Location destinationBlockLoc = getBlockLocation(destinationRequest);
@@ -151,9 +159,10 @@ public class TeleportService {
         int anchorX = destination.getBlockX();
         int anchorY = destination.getBlockY();
         int anchorZ = destination.getBlockZ();
+        int radius = Math.max(1, plugin.getPluginConfig().getArrivalRadius());
         List<Location> candidates = new ArrayList<>();
-        for (int dx = -2; dx <= 2; dx++) {
-            for (int dz = -2; dz <= 2; dz++) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
                 for (int yOffset = -3; yOffset <= 1; yOffset++) {
                     int testY = anchorY + yOffset;
                     Location solidLoc = new Location(world, anchorX + dx, testY, anchorZ + dz);
@@ -278,6 +287,7 @@ public class TeleportService {
             if (arrivalWorld != null) {
                 arrivalWorld.strikeLightningEffect(arrival);
                 spawnArrivalBurst(arrivalWorld);
+                spawnArrivalShockwave(arrivalWorld, arrival);
                 knockbackNearby(arrivalWorld);
                 scheduleThunder(arrivalWorld, arrival.clone());
             }
@@ -357,6 +367,13 @@ public class TeleportService {
                     world.spawnParticle(Particle.ENCHANT, x, y, z, 1, 0, 0, 0, 0);
                 }
             }
+        }
+
+        private void spawnArrivalShockwave(World world, Location center) {
+            world.spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
+            world.spawnParticle(Particle.EXPLOSION, center, 40, 2.0, 0.5, 2.0, 0.05);
+            world.spawnParticle(Particle.FLASH, center, 1);
+            world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
         }
 
         private void knockbackNearby(World world) {

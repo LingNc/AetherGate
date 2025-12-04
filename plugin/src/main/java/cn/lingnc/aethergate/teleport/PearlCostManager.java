@@ -24,9 +24,6 @@ public class PearlCostManager {
 
     public boolean tryConsumePearl(Location anchorLoc, Player player) {
         Inventory coreBarrel = getCoreBarrel(anchorLoc);
-        if (coreBarrel != null && consumeIngot(coreBarrel, anchorLoc, true)) {
-            return true;
-        }
         if (coreBarrel != null && consumePearl(coreBarrel)) {
             return true;
         }
@@ -37,10 +34,27 @@ public class PearlCostManager {
 
         for (ContainerRef ref : barrels) {
             if (ref.isCore()) continue;
-            if (consumeIngot(ref.getInventory(), ref.getDropLocation(), true)) {
+            if (consumePearl(ref.getInventory())) {
                 return true;
             }
+        }
+        for (ContainerRef ref : others) {
             if (consumePearl(ref.getInventory())) {
+                return true;
+            }
+        }
+
+        Inventory playerInv = player.getInventory();
+        if (consumePearl(playerInv)) {
+            return true;
+        }
+
+        if (coreBarrel != null && consumeIngot(coreBarrel, anchorLoc, true)) {
+            return true;
+        }
+        for (ContainerRef ref : barrels) {
+            if (ref.isCore()) continue;
+            if (consumeIngot(ref.getInventory(), ref.getDropLocation(), true)) {
                 return true;
             }
         }
@@ -48,16 +62,8 @@ public class PearlCostManager {
             if (consumeIngot(ref.getInventory(), ref.getDropLocation(), true)) {
                 return true;
             }
-            if (consumePearl(ref.getInventory())) {
-                return true;
-            }
         }
-
-        Inventory playerInv = player.getInventory();
         if (consumeIngot(playerInv, player.getLocation(), true)) {
-            return true;
-        }
-        if (consumePearl(playerInv)) {
             return true;
         }
         return false;

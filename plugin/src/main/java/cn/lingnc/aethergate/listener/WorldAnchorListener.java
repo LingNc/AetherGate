@@ -49,12 +49,28 @@ public class WorldAnchorListener implements Listener {
 
         Block block = event.getClickedBlock();
         if (block == null || block.getType() != Material.LODESTONE) return;
-        if (!altarService.isAnchorBlock(block)) {
-            return;
-        }
 
         Player player = event.getPlayer();
         ItemStack held = event.getItem();
+
+        boolean knownAnchor = altarService.isAnchorBlock(block);
+
+        if (held != null && CustomItems.isEnderIngot(held)) {
+            event.setCancelled(true);
+            if (knownAnchor) {
+                player.sendMessage("§e该祭坛已激活，可直接充能。");
+            } else {
+                altarService.attemptActivation(player, block);
+                consumeItem(player, held);
+            }
+            return;
+        }
+
+        if (!knownAnchor) {
+            event.setCancelled(true);
+            player.sendMessage("§c请先用末影锭激活该祭坛。");
+            return;
+        }
 
         if (held != null && held.getType() == Material.NAME_TAG) {
             ItemMeta meta = held.getItemMeta();
@@ -62,12 +78,7 @@ public class WorldAnchorListener implements Listener {
                 event.setCancelled(true);
                 boolean renamed = altarService.renameWaypoint(block.getLocation(), meta.getDisplayName(), player);
                 if (renamed && player.getGameMode() != GameMode.CREATIVE) {
-                    held.setAmount(held.getAmount() - 1);
-                    if (held.getAmount() <= 0) {
-                        player.getInventory().setItemInMainHand(null);
-                    } else {
-                        player.getInventory().setItemInMainHand(held);
-                    }
+                    consumeItem(player, held);
                 }
             } else {
                 event.setCancelled(true);
@@ -76,16 +87,7 @@ public class WorldAnchorListener implements Listener {
             return;
         }
 
-        int addedCharges = switch (held != null ? held.getType() : Material.AIR) {
-            case COPPER_BLOCK -> 3;
-            case IRON_BLOCK -> 6;
-            case GOLD_BLOCK -> 12;
-            case LAPIS_BLOCK -> 20;
-            case DIAMOND_BLOCK -> 30;
-            case NETHERITE_BLOCK -> 100;
-            case NETHER_STAR -> -1;
-            default -> 0;
-        };
+        int addedCharges = getChargeAmount(held);
 
         if (addedCharges == 0) {
             event.setCancelled(true);
@@ -96,15 +98,8 @@ public class WorldAnchorListener implements Listener {
         }
 
         event.setCancelled(true);
-        altarService.activateOrBackfire(player, block, addedCharges);
-        if (held != null && player.getGameMode() != GameMode.CREATIVE) {
-            held.setAmount(held.getAmount() - 1);
-            if (held.getAmount() <= 0) {
-                player.getInventory().setItemInMainHand(null);
-            } else {
-                player.getInventory().setItemInMainHand(held);
-            }
-        }
+        altarService.recharge(player, block, addedCharges);
+        consumeItem(player, held);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -115,5 +110,31 @@ public class WorldAnchorListener implements Listener {
             return;
         }
         altarService.handleAnchorBreak(block);
+    }
+
+    private int getChargeAmount(ItemStack held) {
+        Material material = held != null ? held.getType() : Material.AIR;
+        return switch (material) {
+            case COPPER_BLOCK -> 3;
+            case IRON_BLOCK -> 6;
+            case GOLD_BLOCK -> 12;
+            case LAPIS_BLOCK -> 20;
+            case DIAMOND_BLOCK -> 30;
+            case NETHERITE_BLOCK -> 100;
+            case NETHER_STAR -> -1;
+            default -> 0;
+        };
+    }
+
+    private void consumeItem(Player player, ItemStack stack) {
+        if (stack == null || player.getGameMode() == GameMode.CREATIVE) {
+            return;
+        }
+        stack.setAmount(stack.getAmount() - 1);
+        if (stack.getAmount() <= 0) {
+            player.getInventory().setItemInMainHand(null);
+        } else {
+            player.getInventory().setItemInMainHand(stack);
+        }
     }
 }
