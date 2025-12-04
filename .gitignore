@@ -1,0 +1,12 @@
+*
+!*/
+!*.*
+
+plugin/libs
+plugin/target
+build
+todos/*.png
+todos/fix_*
+*_context.md
+
+!LICENSE
