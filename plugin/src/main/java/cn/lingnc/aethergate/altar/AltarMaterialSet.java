@@ -19,7 +19,8 @@ public final class AltarMaterialSet {
             Material.PEARLESCENT_FROGLIGHT,
             Material.VERDANT_FROGLIGHT,
             Material.OCHRE_FROGLIGHT,
-            Material.SHROOMLIGHT
+                Material.SHROOMLIGHT,
+                Material.END_ROD
     );
 
     static {

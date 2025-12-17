@@ -39,7 +39,7 @@ public final class RecipeRegistry {
         ShapedRecipe recipe = new ShapedRecipe(key, CustomItems.createWorldAnchorItem());
         recipe.shape("DID", "LBL", "DOD");
         recipe.setIngredient('D', Material.DIAMOND);
-        recipe.setIngredient('I', new RecipeChoice.ExactChoice(CustomItems.createEnderIngotItem(1)));
+        recipe.setIngredient('I', Material.IRON_INGOT);
         recipe.setIngredient('L', Material.LAPIS_BLOCK);
         recipe.setIngredient('B', Material.LODESTONE);
         recipe.setIngredient('O', Material.CRYING_OBSIDIAN);

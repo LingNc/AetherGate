@@ -159,14 +159,18 @@ public class WorldAnchorListener implements Listener {
     }
 
     private void consumeItem(Player player, ItemStack stack) {
-        if (stack == null || player.getGameMode() == GameMode.CREATIVE) {
+        if (player == null || player.getGameMode() == GameMode.CREATIVE) {
             return;
         }
-        stack.setAmount(stack.getAmount() - 1);
-        if (stack.getAmount() <= 0) {
+        ItemStack handItem = player.getInventory().getItemInMainHand();
+        if (handItem == null || handItem.getType().isAir()) {
+            return;
+        }
+        handItem.setAmount(handItem.getAmount() - 1);
+        if (handItem.getAmount() <= 0) {
             player.getInventory().setItemInMainHand(null);
         } else {
-            player.getInventory().setItemInMainHand(stack);
+            player.getInventory().setItemInMainHand(handItem);
         }
     }
 

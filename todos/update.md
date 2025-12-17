@@ -96,3 +96,19 @@ Added clearOldEntities(Location, Class<?>) to encapsulate the cleanup, ensuring 
 
 fix 1.19
 Updated loadExistingAltars to only spawn visuals when the owning chunk is loaded, preventing chunkless ghost entities during startup, and added onChunkLoad in AltarService plus a corresponding ChunkLoadEvent listener so visuals appear automatically once their chunks enter memory. No automated tests run; consider a quick local start to confirm visuals pop in when walking into previously unloaded altar chunks.
+
+v1.0.4
+
+fix 1.20
+WorldAnchorListener.java: consume logic now re-reads the player’s live main-hand stack so cancelled events no longer leave behind ghost name tags or other charge items.
+pom.xml, plugin.yml, dependency-reduced-pom.xml: version strings bumped to 1.0.4 to mark fix 1.20.
+
+fix 1.21
+目前有可以改进的地方：
+1. 就是增加一个光源方块末地烛也支持。
+2. 末影锭和铁锭目前还是混合状态，就是末影锭能干铁锭干的事，可以和村民交易合成等，还能合成其他的东西，有问题
+Added END_ROD to altar light whitelist so altars accept end rods as valid light blocks.
+Implemented CraftingProtectionListener to block ender ingots from serving as generic iron in any crafting and to require the world anchor’s ingot slot to be a true ender ingot.
+Relaxed world anchor recipe to Material.IRON_INGOT for recipe book visibility; safety is enforced by the crafting listener.
+Added RecipeUnlockListener to auto-discover anchor/ender ingot recipes on join.
+Registered the new listeners in AetherGatePlugin.
