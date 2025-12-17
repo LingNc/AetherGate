@@ -1,5 +1,6 @@
 package cn.lingnc.aethergate;
 
+import cn.lingnc.aethergate.altar.AltarMaterialSet;
 import cn.lingnc.aethergate.altar.AltarService;
 import cn.lingnc.aethergate.command.CharmCommand;
 import cn.lingnc.aethergate.config.PluginConfig;
@@ -33,7 +34,10 @@ public class AetherGatePlugin extends JavaPlugin {
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
+        getConfig().options().copyDefaults(true);
+        saveConfig();
         this.pluginConfig = new PluginConfig(getConfig());
+        AltarMaterialSet.reloadFromConfig(getConfig(), getLogger());
         this.storage = new SqliteStorage(getDataFolder());
         try {
             storage.init();
@@ -103,7 +107,10 @@ public class AetherGatePlugin extends JavaPlugin {
 
     public void reloadPluginSettings() {
         reloadConfig();
+        getConfig().options().copyDefaults(true);
+        saveConfig();
         this.pluginConfig = new PluginConfig(getConfig());
+        AltarMaterialSet.reloadFromConfig(getConfig(), getLogger());
         getLogger().info("AetherGate 配置已重载。");
     }
 }
