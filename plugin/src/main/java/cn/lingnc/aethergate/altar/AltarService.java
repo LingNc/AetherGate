@@ -287,9 +287,10 @@ public class AltarService {
         // Clear the core block so the explosion origin is unobstructed
         Block coreBlock = loc.getBlock();
         coreBlock.setType(Material.AIR, false);
-        world.createExplosion(loc, power, false, false);
         Location center = loc.clone().add(0.5, 0.5, 0.5);
+        // Mark victims before the explosion so death events can see the metadata
         markSacrificeVictims(center, 6.0);
+        world.createExplosion(loc, power, false, false);
         world.spawnParticle(Particle.EXPLOSION_EMITTER, center, 8, 4.0, 4.0, 4.0, 0.0);
         world.spawnParticle(Particle.EXPLOSION, center, 300, 8.0, 4.0, 8.0, 0.1);
         world.spawnParticle(Particle.LARGE_SMOKE, center, 200, 6.0, 3.0, 6.0, 0.05);
