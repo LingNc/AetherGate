@@ -25,4 +25,4 @@ teleport:
 
 death-messages:
   sacrifice-success: "%player% 被&c献祭&f了"
-  sacrifice-fail-prefix: "&c在献祭仪式中，&f"
+  sacrifice-fail-prefix: "在&c献祭&f仪式中，"
