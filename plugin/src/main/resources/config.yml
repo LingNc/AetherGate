@@ -24,4 +24,5 @@ teleport:
     other-page-entries: 7
 
 death-messages:
-  sacrifice: "%player% 被献祭了"
+  sacrifice-success: "%player% 被献祭了"
+  sacrifice-fail-prefix: "%player% 在献祭仪式中 "
