@@ -284,13 +284,9 @@ public class AltarService {
 
     private void backfire(World world, Location loc, Player trigger, AltarValidationResult debugInfo) {
         float power = (float) plugin.getPluginConfig().getBackfirePower();
-        // Clear blocking blocks so explosion applies consistently
+        // Clear the core block so the explosion origin is unobstructed
         Block coreBlock = loc.getBlock();
         coreBlock.setType(Material.AIR, false);
-        Block below = coreBlock.getRelative(0, -1, 0);
-        if (below.getType() == Material.BARREL) {
-            below.setType(Material.AIR, false);
-        }
         world.createExplosion(loc, power, false, false);
         Location center = loc.clone().add(0.5, 0.5, 0.5);
         markSacrificeVictims(center, 6.0);
