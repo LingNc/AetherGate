@@ -13,15 +13,13 @@ import java.util.List;
 public class DeathMessageListener implements Listener {
 
     private static final String SACRIFICE_META = "aethergate_sacrificed";
-    private static final long MAX_AGE_MS = 3000L;
-
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
-        long now = System.currentTimeMillis();
         if (!player.hasMetadata(SACRIFICE_META)) {
             return;
         }
+        long now = System.currentTimeMillis();
         Long expiresAt = readExpiry(player.getMetadata(SACRIFICE_META));
         player.removeMetadata(SACRIFICE_META, AetherGatePlugin.getInstance());
         if (expiresAt == null || expiresAt < now) {

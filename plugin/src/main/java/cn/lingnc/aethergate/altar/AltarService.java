@@ -284,6 +284,13 @@ public class AltarService {
 
     private void backfire(World world, Location loc, Player trigger, AltarValidationResult debugInfo) {
         float power = (float) plugin.getPluginConfig().getBackfirePower();
+        // Clear blocking blocks so explosion applies consistently
+        Block coreBlock = loc.getBlock();
+        coreBlock.setType(Material.AIR, false);
+        Block below = coreBlock.getRelative(0, -1, 0);
+        if (below.getType() == Material.BARREL) {
+            below.setType(Material.AIR, false);
+        }
         world.createExplosion(loc, power, false, false);
         Location center = loc.clone().add(0.5, 0.5, 0.5);
         markSacrificeVictims(center, 6.0);
@@ -292,8 +299,6 @@ public class AltarService {
         world.spawnParticle(Particle.LARGE_SMOKE, center, 200, 6.0, 3.0, 6.0, 0.05);
         world.spawnParticle(Particle.LAVA, center, 150, 4.0, 2.0, 4.0, 0.05);
         world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.6f);
-        Block block = loc.getBlock();
-        block.setType(org.bukkit.Material.AIR);
         world.dropItemNaturally(loc, new ItemStack(org.bukkit.Material.DIAMOND, 4));
         world.dropItemNaturally(loc, new ItemStack(org.bukkit.Material.CRYING_OBSIDIAN, 1));
         removeVisuals(loc);
