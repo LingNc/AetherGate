@@ -17,7 +17,7 @@ git commit -m "中文描述..."
 3. 合并功能
 ```bash
 git checkout develop
-git merge feat/<功能名>
+git merge --no-ff feat/<功能名>
 # 删掉临时的特性分支
 git branch -d feat/<功能名>
 # 继续开发新功能或者结束开发...

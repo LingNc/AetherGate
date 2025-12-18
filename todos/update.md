@@ -142,3 +142,13 @@ Applied fix 5 on feat/death-messages: in AltarService.backfire victims are now t
 #### fix 6
 Removed the hardcoded trailing space in DeathMessageListener prefix deserialization.
 Updated config.yml fail prefix to &c在献祭仪式中，&f (no embedded player name, spacing handled by text).
+### plan 4
+Added AchievementService to register plugin advancements (with BACAP root fallback), track altar activation counts, and grant rewards via PDC-backed milestones.
+Wired achievement grants into gameplay: anchor placement, first activation (plus builder 10/50/100), successful teleport, infinite charge application, and backfire triggers now award the corresponding advancements.
+Service is initialized during plugin startup and exposed via a getter for other systems to call.
+#### fix 1
+调整了进度 JSON 生成：icon 的键从 item 改为 id，符合 1.21+ 的组件格式，解决启动时报的 No key id 解析异常。
+#### fix 2
+WorldAnchorListener 使用新版组件 API：hasCustomName()/customName() + PlainTextComponentSerializer，避免 1.20.5+ 名牌显示名弃用问题。
+#### fix 3
+修改成就为中文展示。
