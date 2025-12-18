@@ -35,6 +35,8 @@ altar-materials:
     - OCHRE_FROGLIGHT
     - SHROOMLIGHT
     - END_ROD
+    - TORCH
+    - SOUL_TORCH
 
   # 允许作为底座/柱子的砖块及其对应的楼梯材质
   # 以 键: 值 的形式配置 (砖块: 楼梯)
