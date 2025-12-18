@@ -1,5 +1,6 @@
 package cn.lingnc.aethergate;
 
+import cn.lingnc.aethergate.achievement.AchievementService;
 import cn.lingnc.aethergate.altar.AltarMaterialSet;
 import cn.lingnc.aethergate.altar.AltarService;
 import cn.lingnc.aethergate.command.CharmCommand;
@@ -26,6 +27,7 @@ public class AetherGatePlugin extends JavaPlugin {
     private static AetherGatePlugin instance;
     private PluginConfig pluginConfig;
     private SqliteStorage storage;
+    private AchievementService achievementService;
     private AltarService altarService;
     private TeleportService teleportService;
     private TeleportMenuService teleportMenuService;
@@ -46,6 +48,8 @@ public class AetherGatePlugin extends JavaPlugin {
             getLogger().severe("Failed to init SQLite: " + e.getMessage());
         }
         RecipeRegistry.registerAll(this);
+        this.achievementService = new AchievementService(this);
+        achievementService.init();
         this.altarService = new AltarService(this);
         altarService.loadExistingAltars();
         this.teleportService = new TeleportService(this, altarService);
@@ -80,6 +84,10 @@ public class AetherGatePlugin extends JavaPlugin {
 
     public SqliteStorage getStorage() {
         return storage;
+    }
+
+    public AchievementService getAchievementService() {
+        return achievementService;
     }
 
     public AltarService getAltarService() {

@@ -291,6 +291,7 @@ public class TeleportService {
                 knockbackNearby(arrivalWorld);
                 scheduleThunder(arrivalWorld, arrival.clone());
             }
+            plugin.getAchievementService().handleTeleportComplete(player);
             player.playSound(arrival, Sound.ENTITY_ENDERMAN_STARE, 0.8f, 1.4f);
             player.sendMessage("§b空间折跃完成，正在重构形体……");
         }
