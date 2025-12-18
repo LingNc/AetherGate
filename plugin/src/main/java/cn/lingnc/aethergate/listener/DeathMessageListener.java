@@ -54,7 +54,7 @@ public class DeathMessageListener implements Listener {
         } else {
             Component original = event.deathMessage();
             String prefixText = failPrefix.replace("%player%", player.getName());
-            Component prefix = LegacyComponentSerializer.legacyAmpersand().deserialize(prefixText + " ");
+            Component prefix = LegacyComponentSerializer.legacyAmpersand().deserialize(prefixText);
             if (original == null) {
                 original = Component.text("意外死亡", NamedTextColor.GRAY);
             }
