@@ -88,7 +88,7 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleTravel(Player player, String[] args) {
         if (args.length == 0) {
-            player.sendMessage("§e用法: /charm travel <目标名称或 UUID>");
+            player.sendMessage("§e用法: /aether travel <目标名称或 UUID>");
             return true;
         }
         String target = String.join(" ", args);
@@ -115,7 +115,7 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if (args.length == 0) {
-            player.sendMessage("§e用法: /charm give_block <anchor|ingot> [数量]");
+            player.sendMessage("§e用法: /aether give_block <anchor|ingot> [数量]");
             return true;
         }
         String type = args[0].toLowerCase(Locale.ROOT);
@@ -171,7 +171,7 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if (args.length == 0) {
-            player.sendMessage("§e用法: /charm debugtp <锚点名称>");
+            player.sendMessage("§e用法: /aether debugtp <锚点名称>");
             return true;
         }
         String targetName = String.join(" ", args);
@@ -228,12 +228,12 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage("§b/charm list §7- 查看所有激活的世界锚点");
-        sender.sendMessage("§b/charm book §7- 面对锚点打开传送书");
-        sender.sendMessage("§b/charm travel <目标> §7- 选择书中列出的目的地");
-        sender.sendMessage("§b/charm give_block <anchor|pearl> [数量] §7- 管理员发放物品");
-        sender.sendMessage("§b/charm reload §7- 重新载入配置");
-        sender.sendMessage("§b/charm debug §7- 切换结构调试模式");
+        sender.sendMessage("§b/aether list §7- 查看所有激活的世界锚点");
+        sender.sendMessage("§b/aether book §7- 面对锚点打开传送书");
+        sender.sendMessage("§b/aether travel <目标> §7- 选择书中列出的目的地");
+        sender.sendMessage("§b/aether give_block <anchor|pearl> [数量] §7- 管理员发放物品");
+        sender.sendMessage("§b/aether reload §7- 重新载入配置");
+        sender.sendMessage("§b/aether debug §7- 切换结构调试模式");
     }
 
     @Override

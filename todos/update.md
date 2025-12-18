@@ -117,3 +117,38 @@ Registered the new listeners in AetherGatePlugin.
 
 ## v1.4.0同v1.0.4 第一个所有功能均可正常使用的稳定版本
 ## v1.5.0
+### plan 1
+Created feature branch feat/config-refactor (commit 5eed710): altar materials now configurable via altar-materials in config.yml, defaults auto-copied on load, and AltarMaterialSet reloads from config.
+功能测试正常，包括配置文件的注释都正常保留了。
+### plan 2
+Created feature branch feat/interaction-update (commit 9ecb6f1): main command is /aether with /charm & /ag aliases, book click actions updated, and ender ingot refunds now return max(0, 9-1)=8 pearls with overflow dropped when inventories are full.
+### plan 3
+Added sacrificial death messaging: backfire now tags nearby players, and DeathMessageListener sets a configurable message (default “%player% 被献祭了”) when they die to the explosion within 3s; metadata auto-cleans.
+Config/PluginConfig gained death-messages.sacrifice option for the text.
+Registered the new listener in AetherGatePlugin.
+#### fix 1
+DeathMessageListener: raised to EventPriority.HIGHEST and relaxed cause checking—any player tagged by the backfire metadata within 3s now gets the custom sacrifice message, overriding other plugins’ death text; metadata is still cleared immediately.
+#### fix 2
+DeathMessageListener now sets the custom sacrifice message regardless of death cause (still at HIGHEST priority) as long as the backfire metadata is present within the 3s window.
+AltarService clears the lodestone (and barrel below) before triggering the backfire explosion so blast damage isn’t blocked; metadata tagging and drops remain unchanged.
+#### fix 3
+Implemented fix 3 on feat/death-messages: backfire now only clears the lodestone block before exploding, leaving the barrel intact so blast exposure is consistent without deleting the container.
+#### fix 4
+config.yml: added death-messages.sacrifice-success and death-messages.sacrifice-fail-prefix.
+PluginConfig: getters for the new messages.
+DeathMessageListener: uses Adventure Component API, branches on explosion vs other causes, prefixes non-explosion deaths during sacrifice, and always overrides via deathMessage(Component).
+#### fix 5
+Applied fix 5 on feat/death-messages: in AltarService.backfire victims are now tagged before the explosion is triggered, ensuring the death event sees the metadata for custom messaging.
+#### fix 6
+Removed the hardcoded trailing space in DeathMessageListener prefix deserialization.
+Updated config.yml fail prefix to &c在献祭仪式中，&f (no embedded player name, spacing handled by text).
+### plan 4
+Added AchievementService to register plugin advancements (with BACAP root fallback), track altar activation counts, and grant rewards via PDC-backed milestones.
+Wired achievement grants into gameplay: anchor placement, first activation (plus builder 10/50/100), successful teleport, infinite charge application, and backfire triggers now award the corresponding advancements.
+Service is initialized during plugin startup and exposed via a getter for other systems to call.
+#### fix 1
+调整了进度 JSON 生成：icon 的键从 item 改为 id，符合 1.21+ 的组件格式，解决启动时报的 No key id 解析异常。
+#### fix 2
+WorldAnchorListener 使用新版组件 API：hasCustomName()/customName() + PlainTextComponentSerializer，避免 1.20.5+ 名牌显示名弃用问题。
+#### fix 3
+修改成就为中文展示。

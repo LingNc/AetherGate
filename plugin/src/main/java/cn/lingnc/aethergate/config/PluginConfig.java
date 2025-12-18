@@ -33,4 +33,12 @@ public class PluginConfig {
     public int getMenuOtherPageEntries() {
         return config.getInt("teleport.menu.other-page-entries", 7);
     }
+
+    public String getSacrificeSuccessMessage() {
+        return config.getString("death-messages.sacrifice-success", "%player% 被献祭了");
+    }
+
+    public String getSacrificeFailPrefix() {
+        return config.getString("death-messages.sacrifice-fail-prefix", "%player% 在献祭仪式中 ");
+    }
 }

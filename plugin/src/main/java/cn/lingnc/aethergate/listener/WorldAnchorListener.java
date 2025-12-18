@@ -19,6 +19,8 @@ import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 public class WorldAnchorListener implements Listener {
 
@@ -86,9 +88,13 @@ public class WorldAnchorListener implements Listener {
 
         if (held != null && held.getType() == Material.NAME_TAG) {
             ItemMeta meta = held.getItemMeta();
-            if (meta != null && meta.hasDisplayName()) {
+            if (meta != null && meta.hasCustomName()) {
                 event.setCancelled(true);
-                boolean renamed = altarService.renameWaypoint(block.getLocation(), meta.getDisplayName(), player);
+                Component nameComponent = meta.customName();
+                String plainName = nameComponent != null
+                        ? PlainTextComponentSerializer.plainText().serialize(nameComponent)
+                        : "";
+                boolean renamed = altarService.renameWaypoint(block.getLocation(), plainName, player);
                 if (renamed && player.getGameMode() != GameMode.CREATIVE) {
                     consumeItem(player, held);
                 }

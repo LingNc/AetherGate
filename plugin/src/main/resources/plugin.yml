@@ -1,13 +1,13 @@
 name: AetherGate
 main: cn.lingnc.aethergate.AetherGatePlugin
-version: 1.0.4
+version: 1.5.0
 api-version: '1.21'
 author: lingnc
 website: https://example.com
 commands:
-  charm:
+  aether:
     description: Aether Gate main command
-    usage: /charm <list|book|travel|give_block|reload>
-    aliases: [ag]
+    usage: /aether <list|book|travel|give_block|reload>
+    aliases: [charm, ag]
 depend: []
 softdepend: [ProtocolLib]
