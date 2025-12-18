@@ -140,17 +140,17 @@ public class AchievementService {
         String background = spec.type() == AdvancementType.ROOT
                 ? ",\n    \"background\": \"minecraft:textures/gui/advancements/backgrounds/end.png\"" : "";
         return "{" +
-                "\n  \"parent\": \"" + parent + "\"," +
-                "\n  \"criteria\": {\n    \"" + CRITERION + "\": {\n      \"trigger\": \"minecraft:impossible\"\n    }\n  }," +
-                "\n  \"display\": {\n    \"icon\": {\"item\": \"" + spec.icon().getKey() + "\"}," +
-                "\n    \"title\": {\"text\": \"" + spec.title() + "\"}," +
-                "\n    \"description\": {\"text\": \"" + spec.description() + "\"}," +
-                "\n    \"frame\": \"" + spec.frame().getKey() + "\"," +
-                "\n    \"show_toast\": " + spec.toast() + ',' +
-                "\n    \"announce_to_chat\": " + spec.announce() + ',' +
-                "\n    \"hidden\": false" + background +
-                "\n  }" +
-                "\n}";
+            "\n  \"parent\": \"" + parent + "\"," +
+            "\n  \"criteria\": {\n    \"" + CRITERION + "\": {\n      \"trigger\": \"minecraft:impossible\"\n    }\n  }," +
+            "\n  \"display\": {\n    \"icon\": {\"id\": \"" + spec.icon().getKey() + "\"}," +
+            "\n    \"title\": {\"text\": \"" + spec.title() + "\"}," +
+            "\n    \"description\": {\"text\": \"" + spec.description() + "\"}," +
+            "\n    \"frame\": \"" + spec.frame().getKey() + "\"," +
+            "\n    \"show_toast\": " + spec.toast() + ',' +
+            "\n    \"announce_to_chat\": " + spec.announce() + ',' +
+            "\n    \"hidden\": false" + background +
+            "\n  }" +
+            "\n}";
     }
 
     private String rootParent() {
