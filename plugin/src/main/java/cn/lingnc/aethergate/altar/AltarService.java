@@ -17,6 +17,7 @@ import org.bukkit.entity.Interaction;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Transformation;
@@ -45,6 +46,7 @@ public class AltarService {
     private final Map<UUID, String> interactionAnchors = new HashMap<>();
     private final Map<String, Waypoint> activeAltars = new HashMap<>();
     private final Random particleRandom = new Random();
+    private static final String SACRIFICE_META = "aethergate_sacrificed";
 
     public AltarService(AetherGatePlugin plugin) {
         this.plugin = plugin;
@@ -284,6 +286,7 @@ public class AltarService {
         float power = (float) plugin.getPluginConfig().getBackfirePower();
         world.createExplosion(loc, power, false, false);
         Location center = loc.clone().add(0.5, 0.5, 0.5);
+        markSacrificeVictims(center, 6.0);
         world.spawnParticle(Particle.EXPLOSION_EMITTER, center, 8, 4.0, 4.0, 4.0, 0.0);
         world.spawnParticle(Particle.EXPLOSION, center, 300, 8.0, 4.0, 8.0, 0.1);
         world.spawnParticle(Particle.LARGE_SMOKE, center, 200, 6.0, 3.0, 6.0, 0.05);
@@ -308,6 +311,17 @@ public class AltarService {
                 trigger.sendMessage("§7(仅显示前 6 条，更多内容请检查结构)");
             }
         }
+    }
+
+    private void markSacrificeVictims(Location center, double radius) {
+        if (center == null || center.getWorld() == null) {
+            return;
+        }
+        long expiresAt = System.currentTimeMillis() + 3000;
+        center.getWorld().getNearbyPlayers(center, radius).forEach(player -> {
+            player.setMetadata(SACRIFICE_META, new FixedMetadataValue(plugin, expiresAt));
+            Bukkit.getScheduler().runTaskLater(plugin, () -> player.removeMetadata(SACRIFICE_META, plugin), 60L);
+        });
     }
 
     private void updateVisualState(Location blockLoc, boolean isActive) {

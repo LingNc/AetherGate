@@ -22,3 +22,6 @@ teleport:
     first-page-entries: 4
     # 传送名册后续每页显示的目的地数量
     other-page-entries: 7
+
+death-messages:
+  sacrifice: "%player% 被献祭了"

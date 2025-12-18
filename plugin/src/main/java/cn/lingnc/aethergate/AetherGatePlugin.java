@@ -4,6 +4,7 @@ import cn.lingnc.aethergate.altar.AltarService;
 import cn.lingnc.aethergate.command.CharmCommand;
 import cn.lingnc.aethergate.config.PluginConfig;
 import cn.lingnc.aethergate.listener.CraftingProtectionListener;
+import cn.lingnc.aethergate.listener.DeathMessageListener;
 import cn.lingnc.aethergate.listener.RecipeUnlockListener;
 import cn.lingnc.aethergate.listener.WorldAnchorListener;
 import cn.lingnc.aethergate.recipe.RecipeRegistry;
@@ -47,6 +48,7 @@ public class AetherGatePlugin extends JavaPlugin {
         this.teleportMenuService = new TeleportMenuService(this, altarService);
         getServer().getPluginManager().registerEvents(new CraftingProtectionListener(), this);
         getServer().getPluginManager().registerEvents(new RecipeUnlockListener(), this);
+        getServer().getPluginManager().registerEvents(new DeathMessageListener(), this);
         getServer().getPluginManager().registerEvents(new WorldAnchorListener(altarService, teleportMenuService), this);
         getServer().getPluginManager().registerEvents(new TeleportListener(teleportService), this);
         CharmCommand charmCommand = new CharmCommand(this, altarService, teleportService, teleportMenuService);
