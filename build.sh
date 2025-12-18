@@ -1,81 +1,94 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 基础路径配置
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" )" && pwd)"
 BUILD_DIR="$ROOT_DIR/build"
 
-# Configuration for AetherGate structure
+# AetherGate 项目结构配置
 PLUGIN_MODULE="$ROOT_DIR/plugin"
 PLUGIN_POM="$PLUGIN_MODULE/pom.xml"
-RESOURCE_PACK_DIR="$ROOT_DIR/resource_pack" # AetherGate uses 'resource_pack'
+RESOURCE_PACK_DIR="$ROOT_DIR/resource_pack" # AetherGate 使用 'resource_pack' 目录
 
-# Clean and Init
+# 清理并初始化构建目录
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
 # ---------------------------------------------------------
-# 1. Extract Version
+# 1. 提取版本号及构建标识 (分支名 + 短哈希)
 # ---------------------------------------------------------
+
+# 提取 Maven 版本号
 if [[ -f "$PLUGIN_POM" ]]; then
-  # Attempt to extract version from plugin/pom.xml
+  # 尝试从 plugin/pom.xml 中提取版本号
   VERSION="$(grep -m 1 -oP '(?<=<version>).*?(?=</version>)' "$PLUGIN_POM" 2>/dev/null || true)"
 else
-  echo "Warning: plugin/pom.xml not found."
+  echo "警告: 未找到 plugin/pom.xml。"
   VERSION=""
 fi
 
 if [[ -z "$VERSION" ]]; then
   VERSION="unversioned"
-  echo "Version could not be detected, using 'unversioned'."
+  echo "无法检测到版本号，将使用 'unversioned'。"
 fi
 
-echo "Detected Project Version: $VERSION"
+# 获取 Git 构建标识
+# 使用 sed 's/\//-/g' 将分支名中的 / 替换为 -，防止路径错误
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/\//-/g' || echo "unknown")
+GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "nohash")
+BUILD_ID="${GIT_BRANCH}_${GIT_HASH}"
+
+echo "检测到项目版本: $VERSION"
+echo "构建标识: $BUILD_ID"
 
 # ---------------------------------------------------------
-# 2. Build Plugin
+# 2. 构建插件 (Plugin)
 # ---------------------------------------------------------
-echo "Building Plugin..."
+echo "正在构建插件..."
 ( cd "$PLUGIN_MODULE" && mvn -q -DskipTests package )
 
-# Construct expected Jar path based on Maven conventions
-# ArtifactId is 'aether-gate' based on the provided pom.xml
+# 根据 Maven 约定构造预期的 Jar 包路径
+# 根据提供的 pom.xml，artifactId 为 'aether-gate'
 EXPECTED_JAR_NAME="aether-gate-${VERSION}.jar"
 UNSHADED_JAR_PATH="$PLUGIN_MODULE/target/original-$EXPECTED_JAR_NAME"
 
-# Prefer the unshaded jar (original-*) to keep dependencies out of the final artifact
+# 优先使用未着色的 jar (original-*) 以保持依赖项不在最终构件中
 if [[ ! -f "$UNSHADED_JAR_PATH" ]]; then
   UNSHADED_JAR_PATH=$(find "$PLUGIN_MODULE/target" -maxdepth 1 -name "original-*.jar" | head -n 1 || true)
 fi
 
-# If all else fails, fall back to any jar (last resort)
+# 如果失败，则退而求其次使用任何找到的 jar
 if [[ -z "$UNSHADED_JAR_PATH" || ! -f "$UNSHADED_JAR_PATH" ]]; then
   UNSHADED_JAR_PATH=$(find "$PLUGIN_MODULE/target" -maxdepth 1 -name "*.jar" ! -name "original-*" | head -n 1 || true)
 fi
 
 if [[ -z "$UNSHADED_JAR_PATH" || ! -f "$UNSHADED_JAR_PATH" ]]; then
-  echo "ERROR: Plugin jar not found in $PLUGIN_MODULE/target/" >&2
+  echo "错误: 在 $PLUGIN_MODULE/target/ 中未找到插件 Jar 包" >&2
   exit 1
 fi
 
-PLUGIN_FINAL_NAME="AetherGate_Plugin_${VERSION}.jar"
+# 定义最终插件文件名：版本号_分支名_短哈希
+PLUGIN_FINAL_NAME="AetherGate_Plugin_${VERSION}_${BUILD_ID}.jar"
 cp "$UNSHADED_JAR_PATH" "$BUILD_DIR/$PLUGIN_FINAL_NAME"
 
 # ---------------------------------------------------------
-# 3. Build Resource Pack
+# 3. 构建资源包 (Resource Pack)
 # ---------------------------------------------------------
-RESOURCE_PACK_FINAL_NAME="AetherGate_ResourcePack_${VERSION}.zip"
+# 定义最终资源包文件名：版本号_分支名_短哈希
+RESOURCE_PACK_FINAL_NAME="AetherGate_ResourcePack_${VERSION}_${BUILD_ID}.zip"
 
 if [[ -d "$RESOURCE_PACK_DIR" && -f "$RESOURCE_PACK_DIR/pack.mcmeta" ]]; then
-    echo "Building Resource Pack..."
+    echo "正在构建资源包..."
     rm -f "$BUILD_DIR/$RESOURCE_PACK_FINAL_NAME"
     ( cd "$RESOURCE_PACK_DIR" && zip -rq "$BUILD_DIR/$RESOURCE_PACK_FINAL_NAME" . )
 else
-    echo "WARNING: Resource pack directory or pack.mcmeta not found at $RESOURCE_PACK_DIR. Skipping."
+    echo "警告: 未在 $RESOURCE_PACK_DIR 找到资源包目录或 pack.mcmeta。跳过构建。"
 fi
 
 # ---------------------------------------------------------
-# 4. Validation
+# 4. 验证构建结果
 # ---------------------------------------------------------
+# 检查 zip 包根目录下是否存在 pack.mcmeta
 ensure_packmeta_in_zip() {
   local zipfile="$1"
   if [[ ! -f "$zipfile" ]]; then return 1; fi
@@ -88,21 +101,21 @@ ensure_packmeta_in_zip() {
   return 0
 }
 
-# Only validate if the file was actually created
+# 仅在资源包文件生成后进行验证
 if [[ -f "$BUILD_DIR/$RESOURCE_PACK_FINAL_NAME" ]]; then
     if ! ensure_packmeta_in_zip "$BUILD_DIR/$RESOURCE_PACK_FINAL_NAME"; then
-      echo "ERROR: $BUILD_DIR/$RESOURCE_PACK_FINAL_NAME does not contain pack.mcmeta at the root" >&2
+      echo "错误: $BUILD_DIR/$RESOURCE_PACK_FINAL_NAME 根目录下不包含 pack.mcmeta" >&2
       exit 1
     fi
 fi
 
 # ---------------------------------------------------------
-# 5. Summary
+# 5. 构建总结
 # ---------------------------------------------------------
 echo "------------------------------------------------"
-echo "Build complete. Outputs in build/:"
-echo " - Plugin:       $PLUGIN_FINAL_NAME"
+echo "构建完成。输出文件位于 build/ 目录:"
+echo " - 插件文件:   $PLUGIN_FINAL_NAME"
 if [[ -f "$BUILD_DIR/$RESOURCE_PACK_FINAL_NAME" ]]; then
-    echo " - ResourcePack: $RESOURCE_PACK_FINAL_NAME"
+    echo " - 资源包文件: $RESOURCE_PACK_FINAL_NAME"
 fi
 echo "------------------------------------------------"

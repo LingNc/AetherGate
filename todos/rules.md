@@ -22,7 +22,7 @@ git merge feat/<功能名>
 git branch -d feat/<功能名>
 # 继续开发新功能或者结束开发...
 ```
-4. 发布版本：当develop上累积了足够的更新，合并到main，打标签
+4. 发布版本：当develop上累积了足够的更新，合并到main（请排除todos中的fix和plan文件夹），打标签
 ```bash
 git checkout main
 git merge develop
