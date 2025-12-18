@@ -98,25 +98,25 @@ public class AchievementService {
         }
     }
 
-    private AdvancementSpec specs(AdvancementType type) {
+private AdvancementSpec specs(AdvancementType type) {
         return switch (type) {
-            case ROOT -> new AdvancementSpec(type, "Gateway Initiate", "Join the AetherGate network.",
+            case ROOT -> new AdvancementSpec(type, "以太探索者", "加入以太之门传送网络。",
                     Material.LODESTONE, Frame.TASK, true, true);
-            case OBTAIN_ANCHOR -> new AdvancementSpec(type, "Anchoring Point", "Place a world anchor.",
+            case OBTAIN_ANCHOR -> new AdvancementSpec(type, "空间锚点", "放置一个世界锚点。",
                     Material.LODESTONE, Frame.TASK, true, true);
-            case ACTIVATE_ALTAR -> new AdvancementSpec(type, "Awaken the Altar", "Stabilize a world anchor with an ender ingot.",
+            case ACTIVATE_ALTAR -> new AdvancementSpec(type, "祭坛", "使用末影锭稳定并激活世界锚点。",
                     Material.ENDER_EYE, Frame.TASK, true, true);
-            case FIRST_TELEPORT -> new AdvancementSpec(type, "Folded Space", "Complete a teleport between altars.",
+            case FIRST_TELEPORT -> new AdvancementSpec(type, "跃迁", "在两个祭坛之间完成一次传送。",
                     Material.ENDER_PEARL, Frame.GOAL, true, true);
-            case INFINITE_POWER -> new AdvancementSpec(type, "Infinite Power", "Empower an altar with limitless energy.",
+            case INFINITE_POWER -> new AdvancementSpec(type, "永恒能量", "赋予祭坛无穷无尽的能量。",
                     Material.NETHER_STAR, Frame.CHALLENGE, true, true);
-            case BUILDER_10 -> new AdvancementSpec(type, "Field Engineer", "Activate 10 altars.",
+            case BUILDER_10 -> new AdvancementSpec(type, "初级网络", "累计激活 10 个祭坛。",
                     Material.COPPER_BLOCK, Frame.TASK, true, true);
-            case BUILDER_50 -> new AdvancementSpec(type, "Network Architect", "Activate 50 altars.",
+            case BUILDER_50 -> new AdvancementSpec(type, "资深祭坛师", "累计激活 50 个祭坛。",
                     Material.GOLD_BLOCK, Frame.GOAL, true, true);
-            case BUILDER_100 -> new AdvancementSpec(type, "Dimensional Surveyor", "Activate 100 altars.",
+            case BUILDER_100 -> new AdvancementSpec(type, "世界互联", "累计激活 100 个祭坛。",
                     Material.NETHERITE_BLOCK, Frame.CHALLENGE, true, true);
-            case SACRIFICE -> new AdvancementSpec(type, "Sacrifice to the Void", "Trigger a catastrophic backfire.",
+            case SACRIFICE -> new AdvancementSpec(type, "献祭", "触发一次灾难性的祭坛反噬。",
                     Material.TNT, Frame.CHALLENGE, true, true);
         };
     }
