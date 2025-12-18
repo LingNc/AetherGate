@@ -2,9 +2,9 @@ package cn.lingnc.aethergate.listener;
 
 import cn.lingnc.aethergate.AetherGatePlugin;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.entity.Player;
 
@@ -15,13 +15,9 @@ public class DeathMessageListener implements Listener {
     private static final String SACRIFICE_META = "aethergate_sacrificed";
     private static final long MAX_AGE_MS = 3000L;
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
-        DamageCause cause = player.getLastDamageCause() != null ? player.getLastDamageCause().getCause() : null;
-        if (cause != DamageCause.BLOCK_EXPLOSION && cause != DamageCause.ENTITY_EXPLOSION) {
-            return;
-        }
         long now = System.currentTimeMillis();
         if (!player.hasMetadata(SACRIFICE_META)) {
             return;
