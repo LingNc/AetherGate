@@ -136,6 +136,7 @@ public class AltarService {
         activeAltars.put(mapKey, waypoint);
         if (player != null) {
             player.sendMessage("§7世界锚点已安放，使用末影锭激活它。");
+            plugin.getAchievementService().handleAnchorPlaced(player);
         }
     }
 
@@ -218,6 +219,7 @@ public class AltarService {
         playActivationEffects(world, loc, true, player);
         if (player != null) {
             player.sendMessage("§a激活成功！现在使用末影锭为祭坛充能。");
+            plugin.getAchievementService().handleAltarActivated(player);
         }
     }
 
@@ -266,6 +268,9 @@ public class AltarService {
         }
         if (player != null) {
             player.sendMessage("§a祭坛充能成功，当前剩余 " + (updated.isInfinite() ? "∞" : updated.getCharges()) + " 次。");
+            if (updated.isInfinite()) {
+                plugin.getAchievementService().handleInfiniteCharge(player);
+            }
         }
     }
 
@@ -299,6 +304,9 @@ public class AltarService {
             storage.deleteWaypointAt(world.getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
         } catch (SQLException e) {
             plugin.getLogger().severe("Failed to delete waypoint after backfire: " + e.getMessage());
+        }
+        if (trigger != null) {
+            plugin.getAchievementService().handleBackfire(trigger);
         }
         if (trigger != null && debugInfo != null && !debugInfo.getErrors().isEmpty()
                 && plugin.isDebugEnabled(trigger.getUniqueId())) {
