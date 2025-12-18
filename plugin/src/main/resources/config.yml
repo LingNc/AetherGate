@@ -68,3 +68,7 @@ altar-materials:
     CHISELED_TUFF_BRICKS: TUFF_BRICK_STAIRS
     RESIN_BRICKS: RESIN_BRICK_STAIRS
     CHISELED_RESIN_BRICKS: RESIN_BRICK_STAIRS
+
+death-messages:
+  sacrifice-success: "%player% 被&c献祭&f了"
+  sacrifice-fail-prefix: "在&c献祭&f仪式中，"
