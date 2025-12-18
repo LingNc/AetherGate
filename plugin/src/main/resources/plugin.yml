@@ -1,6 +1,6 @@
 name: AetherGate
 main: cn.lingnc.aethergate.AetherGatePlugin
-version: 1.0.4
+version: 1.5.0
 api-version: '1.21'
 author: lingnc
 website: https://example.com
