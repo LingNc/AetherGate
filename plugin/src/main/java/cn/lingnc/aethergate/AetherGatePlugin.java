@@ -1,10 +1,12 @@
 package cn.lingnc.aethergate;
 
 import cn.lingnc.aethergate.achievement.AchievementService;
+import cn.lingnc.aethergate.altar.AltarMaterialSet;
 import cn.lingnc.aethergate.altar.AltarService;
 import cn.lingnc.aethergate.command.CharmCommand;
 import cn.lingnc.aethergate.config.PluginConfig;
 import cn.lingnc.aethergate.listener.CraftingProtectionListener;
+import cn.lingnc.aethergate.listener.DeathMessageListener;
 import cn.lingnc.aethergate.listener.RecipeUnlockListener;
 import cn.lingnc.aethergate.listener.WorldAnchorListener;
 import cn.lingnc.aethergate.recipe.RecipeRegistry;
@@ -35,7 +37,10 @@ public class AetherGatePlugin extends JavaPlugin {
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
+        getConfig().options().copyDefaults(true);
+        saveConfig();
         this.pluginConfig = new PluginConfig(getConfig());
+        AltarMaterialSet.reloadFromConfig(getConfig(), getLogger());
         this.storage = new SqliteStorage(getDataFolder());
         try {
             storage.init();
@@ -51,12 +56,13 @@ public class AetherGatePlugin extends JavaPlugin {
         this.teleportMenuService = new TeleportMenuService(this, altarService);
         getServer().getPluginManager().registerEvents(new CraftingProtectionListener(), this);
         getServer().getPluginManager().registerEvents(new RecipeUnlockListener(), this);
+        getServer().getPluginManager().registerEvents(new DeathMessageListener(), this);
         getServer().getPluginManager().registerEvents(new WorldAnchorListener(altarService, teleportMenuService), this);
         getServer().getPluginManager().registerEvents(new TeleportListener(teleportService), this);
         CharmCommand charmCommand = new CharmCommand(this, altarService, teleportService, teleportMenuService);
-        var charmPluginCommand = Objects.requireNonNull(getCommand("charm"), "charm command not defined");
-        charmPluginCommand.setExecutor(charmCommand);
-        charmPluginCommand.setTabCompleter(charmCommand);
+        var mainCommand = Objects.requireNonNull(getCommand("aether"), "aether command not defined");
+        mainCommand.setExecutor(charmCommand);
+        mainCommand.setTabCompleter(charmCommand);
         getLogger().info("AetherGate enabled");
     }
 
@@ -111,7 +117,10 @@ public class AetherGatePlugin extends JavaPlugin {
 
     public void reloadPluginSettings() {
         reloadConfig();
+        getConfig().options().copyDefaults(true);
+        saveConfig();
         this.pluginConfig = new PluginConfig(getConfig());
+        AltarMaterialSet.reloadFromConfig(getConfig(), getLogger());
         getLogger().info("AetherGate 配置已重载。");
     }
 }

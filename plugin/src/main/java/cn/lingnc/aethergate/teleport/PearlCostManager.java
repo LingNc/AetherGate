@@ -21,6 +21,8 @@ import java.util.Map;
 public class PearlCostManager {
 
     private static final int SCAN_RADIUS = 2;
+    private static final int PEARL_VALUE = 9;
+    private static final int COST_PER_TELEPORT = 1;
 
     public boolean tryConsumePearl(Location anchorLoc, Player player) {
         Inventory coreBarrel = getCoreBarrel(anchorLoc);
@@ -191,16 +193,19 @@ public class PearlCostManager {
             if (stack.getAmount() <= 0) {
                 inventory.setItem(slot, null);
             }
-            ItemStack refund = new ItemStack(Material.ENDER_PEARL, 9);
-            if (returnToInventory) {
-                Map<Integer, ItemStack> leftover = inventory.addItem(refund);
-                if (world != null && dropLoc != null) {
-                    for (ItemStack remain : leftover.values()) {
-                        world.dropItemNaturally(dropLoc, remain);
+            int refundCount = Math.max(0, PEARL_VALUE - COST_PER_TELEPORT);
+            if (refundCount > 0) {
+                ItemStack refund = new ItemStack(Material.ENDER_PEARL, refundCount);
+                if (returnToInventory) {
+                    Map<Integer, ItemStack> leftover = inventory.addItem(refund);
+                    if (world != null && dropLoc != null) {
+                        for (ItemStack remain : leftover.values()) {
+                            world.dropItemNaturally(dropLoc, remain);
+                        }
                     }
+                } else if (world != null && dropLoc != null) {
+                    world.dropItemNaturally(dropLoc, refund);
                 }
-            } else if (world != null && dropLoc != null) {
-                world.dropItemNaturally(dropLoc, refund);
             }
             return true;
         }
