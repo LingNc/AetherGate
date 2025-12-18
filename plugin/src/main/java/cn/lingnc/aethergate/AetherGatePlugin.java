@@ -54,9 +54,9 @@ public class AetherGatePlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new WorldAnchorListener(altarService, teleportMenuService), this);
         getServer().getPluginManager().registerEvents(new TeleportListener(teleportService), this);
         CharmCommand charmCommand = new CharmCommand(this, altarService, teleportService, teleportMenuService);
-        var charmPluginCommand = Objects.requireNonNull(getCommand("charm"), "charm command not defined");
-        charmPluginCommand.setExecutor(charmCommand);
-        charmPluginCommand.setTabCompleter(charmCommand);
+        var mainCommand = Objects.requireNonNull(getCommand("aether"), "aether command not defined");
+        mainCommand.setExecutor(charmCommand);
+        mainCommand.setTabCompleter(charmCommand);
         getLogger().info("AetherGate enabled");
     }
 

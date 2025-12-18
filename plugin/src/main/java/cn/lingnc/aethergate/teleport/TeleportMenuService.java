@@ -146,7 +146,7 @@ public class TeleportMenuService {
 
     private Component buildEntry(Waypoint waypoint) {
         String charges = waypoint.isInfinite() ? "∞" : String.valueOf(waypoint.getCharges());
-        String command = "/charm travel " + waypoint.getId();
+        String command = "/aether travel " + waypoint.getId();
         String locString = String.format("(%s: %d, %d, %d)",
             waypoint.getWorldName(), waypoint.getBlockX(), waypoint.getBlockY(), waypoint.getBlockZ());
         Component hover = Component.text()
