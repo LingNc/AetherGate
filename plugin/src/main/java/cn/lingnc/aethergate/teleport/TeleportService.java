@@ -24,6 +24,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Tameable;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.event.player.PlayerMoveEvent;
 
 import java.util.ArrayList;
@@ -152,22 +154,9 @@ public class TeleportService {
         if (task == null) {
             return;
         }
+        // Movement no longer interrupts the ritual; keep listener to retain future extensibility.
         if (task.hasPerformedTeleport()) {
             return;
-        }
-        Location lockPoint = task.getLockPoint();
-        if (lockPoint == null || event.getTo() == null) {
-            return;
-        }
-        double allowed = Math.max(0.0, plugin.getPluginConfig().getTeleportAllowedMovementRadius());
-        if (allowed == 0.0) {
-            if (!sameBlock(event.getTo(), lockPoint)) {
-                cancelTeleport(player, "§c传送被打断：请保持静止。");
-            }
-            return;
-        }
-        if (event.getTo().toVector().setY(0).distanceSquared(lockPoint.toVector().setY(0)) > allowed * allowed) {
-            cancelTeleport(player, "§c传送被打断：移动超出允许范围。");
         }
     }
 
@@ -415,6 +404,7 @@ public class TeleportService {
             player.setInvulnerable(true);
             player.addPotionEffect(PotionUtil.noJumpEffect());
             player.addPotionEffect(PotionUtil.blindnessEffect());
+            player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, WARMUP_TICKS + 20, 1, true, false, false));
             player.setWalkSpeed(0f);
             player.setFlySpeed(0f);
             player.setSprinting(false);
@@ -491,6 +481,7 @@ public class TeleportService {
             if (offset != null) {
                 dest.add(offset);
             }
+            dest = ensureSafeLanding(entity, dest);
             if (entity instanceof Player p) {
                 internalTeleporting = true;
                 p.teleport(dest);
@@ -569,6 +560,40 @@ public class TeleportService {
             return new Vector(offsetX, 0.0, offsetZ);
         }
 
+        private Location ensureSafeLanding(Entity entity, Location dest) {
+            if (dest == null || dest.getWorld() == null || entity == null) {
+                return dest;
+            }
+            Location candidate = dest.clone();
+            if (isAreaPassable(candidate, entity)) {
+                return candidate;
+            }
+            Location center = arrival.clone();
+            if (isAreaPassable(center, entity)) {
+                return center;
+            }
+            Location above = candidate.clone().add(0, 1, 0);
+            if (isAreaPassable(above, entity)) {
+                return above;
+            }
+            return center;
+        }
+
+        private boolean isAreaPassable(Location loc, Entity entity) {
+            World world = loc.getWorld();
+            if (world == null) {
+                return false;
+            }
+            int heightBlocks = Math.max(1, (int) Math.ceil(Math.max(1.0, entity.getBoundingBox().getHeight())));
+            for (int y = 0; y <= heightBlocks; y++) {
+                Block block = world.getBlockAt(loc.getBlockX(), loc.getBlockY() + y, loc.getBlockZ());
+                if (!block.isPassable()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         private void addTargetWithPassengers(Entity entity, Set<UUID> seen) {
             if (entity == null || !seen.add(entity.getUniqueId())) {
                 return;
@@ -600,6 +625,9 @@ public class TeleportService {
                 if (entity == null || !entity.isValid() || entity.getWorld() == null) {
                     continue;
                 }
+                if (entity.getUniqueId().equals(player.getUniqueId())) {
+                    continue;
+                }
                 Location center = entity.getLocation().toCenterLocation();
                 double height = Math.max(1.0, entity.getBoundingBox().getHeight());
                 double ringRadius = Math.min(1.2, 0.4 + tick * 0.01);
@@ -618,8 +646,16 @@ public class TeleportService {
             if (arrivalWorld == null) {
                 return;
             }
+            double playerHeight = 4.0;
+            for (double y = 0; y <= playerHeight; y += 0.5) {
+                arrivalWorld.spawnParticle(Particle.ENCHANT, arrival.getX(), arrival.getY() + y, arrival.getZ(),
+                        4, 0.3, 0.0, 0.3, 0.0);
+            }
             for (Entity entity : targets) {
                 if (entity == null || !entity.isValid()) {
+                    continue;
+                }
+                if (entity.getUniqueId().equals(player.getUniqueId())) {
                     continue;
                 }
                 Location dest = arrival.clone();
@@ -629,7 +665,7 @@ public class TeleportService {
                 }
                 double height = Math.max(1.5, entity.getBoundingBox().getHeight() + 0.5);
                 for (double y = 0; y <= height; y += 0.4) {
-                    arrivalWorld.spawnParticle(Particle.ENCHANT, dest.getX(), dest.getY() + y, dest.getZ(),
+                    arrivalWorld.spawnParticle(Particle.WITCH, dest.getX(), dest.getY() + y, dest.getZ(),
                             3, 0.15, 0.0, 0.15, 0.0);
                 }
             }
@@ -697,8 +733,12 @@ public class TeleportService {
                 if (!(entity instanceof LivingEntity living)) {
                     continue;
                 }
-                Vector push = entity.getLocation().toVector().subtract(arrival.toVector()).normalize().multiply(0.8);
-                push.setY(0.35);
+                Vector push = entity.getLocation().toVector().subtract(arrival.toVector());
+                if (push.lengthSquared() < 0.0001) {
+                    push = new Vector(0, 0.5, 0);
+                } else {
+                    push.normalize().multiply(0.8).setY(0.35);
+                }
                 living.damage(2.0, player);
                 living.setVelocity(push);
             }
@@ -761,6 +801,7 @@ public class TeleportService {
         static void clearLockEffects(Player player) {
             player.removePotionEffect(org.bukkit.potion.PotionEffectType.JUMP_BOOST);
             player.removePotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS);
+            player.removePotionEffect(org.bukkit.potion.PotionEffectType.REGENERATION);
         }
     }
 
