@@ -286,7 +286,7 @@ public class TeleportService {
             if (anchorBlock.getType() != Material.LODESTONE || !altarService.isAnchorBlock(anchorBlock)) {
                 return false;
             }
-            if (!costManager.tryConsumePearl(originBlockLoc, player)) {
+            if (!costManager.consumePearls(originBlockLoc, player, 1)) {
                 return false;
             }
             return altarService.consumeCharge(originBlockLoc);

@@ -56,7 +56,7 @@ public class TeleportMenuService {
         }
         active.sort(Comparator.comparing(w -> w.getName().toLowerCase(Locale.ROOT)));
         boolean hasCharge = originWaypoint != null && (originWaypoint.isInfinite() || originWaypoint.getCharges() > 0);
-        boolean ready = hasCharge && costProbe.hasAvailableFuel(originBlock.getLocation(), player);
+        boolean ready = hasCharge && costProbe.hasEnoughPearls(originBlock.getLocation(), player, 1);
         ItemStack book = buildBook(active, originWaypoint, ready);
         if (book == null) {
             player.sendMessage("§c无法生成传送名册，请联系管理员。");
