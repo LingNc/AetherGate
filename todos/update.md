@@ -152,3 +152,32 @@ Service is initialized during plugin startup and exposed via a getter for other 
 WorldAnchorListener 使用新版组件 API：hasCustomName()/customName() + PlainTextComponentSerializer，避免 1.20.5+ 名牌显示名弃用问题。
 #### fix 3
 修改成就为中文展示。
+## v1.6.0
+### plan 1
+feat/teleport-scan-lock: 新增全局锁集合，按根载具 UUID 锁定，防止同一实体被同时占用（构建通过）。
+### plan 2
+feat/teleport-cost-precheck: 重构珍珠消耗逻辑，新增 hasEnoughPearls(..., amount) 与 consumePearls(..., amount)，Teleport/菜单已切换到可变成本接口（构建通过）。
+### plan 3
+feat/teleport-movement-tolerance: 新增配置 teleport.allowable-movement-radius（默认 0.5），PluginConfig 读取。
+移动事件改由 TeleportService.handleMove 处理：零容差用方块级判定，>0 时按水平半径判定超距中断。
+清理 TeleportListener 旧逻辑，集中调用新容差处理。
+构建通过。
+### plan 4
+feat/teleport-movement-tolerance: Added multi-target teleport support in TeleportService.java: collect nearby root entities (skipping other players/utility displays/foreign tames/locked entities), block teleport if your vehicle carries another player, precheck pearl cost for all paid targets, lock every root during warmup, consume the aggregated cost, and teleport all targets with slight offsets while keeping the initiating player invulnerable.
+### plan 5 to fix
+1. 在一定范围内无法取消传送，在点击开始传送后人好像已经被固定了一样，左右移动虽然移动了但是不会打断传送。但是到达目的地后左右移动会提示打断传送的错误提示，这个不该出现，虽然到达目的地之后有一段时间不可以左右移动，但是不应该提示用户传送被打断。
+2. 可以在书里面增加一个取消传送的按钮（只有当在点击传送处在传送过程中打开书GUI才会显示这个按钮并且取消显示传送这个按钮）
+3. 传送的时候如果玩家坐在载具或者马上，我发现点击传送之后可以正确触发粒子效果，但是传送的时候玩家和载具都不会被传送了，有问题，没有按照开始的要求完成（但是矿车不坐其他生物的时候就可以正常传送、船、马也是）。就是当载具有实体乘坐的时候便两者均无法传送，但是如果没人坐载具可以正常被传送，否则两者都在原地。
+4. 对于被传送的实体没有正确在其上面显示粒子效果，和在传送到达前的预先的粒子效果（应该和玩家的类似）。
+#### fix 1
+Movement/mount fixes in TeleportService: movement checks now ignore post-teleport recovery; full mount graph captured, dismounted, teleported with stable per-entity offsets, then remounted after a short delay; players are explicitly teleported alongside mounts; arrival offsets reused for previews; warmup/preview particles now render around every target using height-aware spirals/columns.
+UI/command updates: TeleportMenuService now shows an in-progress cancel book with countdown and a [终止仪式] button when the player is locked; /aether cancel added in CharmCommand; AetherGatePlugin wires the menu with the teleport service.
+#### fix 2
+1. 传送的生物什么的应该找到安全的不会窒息的地方，不应该和玩家一样，在祭坛内部应该有比较安全的地方，就是不会让生物产生窒息。
+2. 取消移动打断传送的机制，并且在传送过程中玩家是有一点的免伤的会在传送期间获得一个生命恢复直到传送结束消失。（因为有可以中断的按钮了）
+Movement check no longer cancels teleport; ritual stays active even if pushed.
+Warmup/preview particles now split: player keeps original blue spiral/beam; followers get purple WITCH effects at their positions.
+Teleport safety: per-entity landing is validated against solids (with fallback to arrival/above), preventing suffocation; mount knockback now guards zero-length vectors to avoid x not finite errors.
+Resilience: added Regeneration during warmup and clear it on cleanup.
+#### fix 3
+rewrote consumePearls in PearlCostManager to an ingot-first smart deduction (ingots for bulk, pearls for remainder, auto-break ingot for change) with a shared takeItems helper. hasEnoughPearls unchanged.
