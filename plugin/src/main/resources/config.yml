@@ -23,9 +23,6 @@ teleport:
     # 传送名册后续每页显示的目的地数量
     other-page-entries: 7
 
-  # 传送过程中允许的水平位移半径（格）。超过则中断传送。
-  allowable-movement-radius: 0.5
-
 altar-materials:
   # 允许作为光源的方块列表
   lights:
