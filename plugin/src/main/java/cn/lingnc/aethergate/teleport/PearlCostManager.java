@@ -53,50 +53,124 @@ public class PearlCostManager {
     }
 
     /**
-     * Consumes the specified pearl-equivalent amount. Pearls are consumed first; ingots are converted when needed.
+     * Consumes pearl-equivalent fuel using an ingot-first strategy:
+     * 1) pay large portion with ingots, 2) pay remainder with pearls, 3) if pearls short, break one ingot for change.
      */
     public boolean consumePearls(Location anchorLoc, Player player, int amount) {
         if (anchorLoc == null || player == null || amount <= 0) {
             return false;
         }
-        int remaining = amount;
-        Inventory coreBarrel = getCoreBarrel(anchorLoc);
 
+        // Double-check affordability
+        if (!hasEnoughPearls(anchorLoc, player, amount)) {
+            return false;
+        }
+
+        Inventory coreBarrel = getCoreBarrel(anchorLoc);
         List<ContainerRef> barrels = new ArrayList<>();
         List<ContainerRef> others = new ArrayList<>();
         collectContainers(anchorLoc, barrels, others);
 
-        // 1) consume pearls (core -> barrels -> others -> player)
-        remaining = consumePearlAmount(coreBarrel, remaining);
+        List<Inventory> inventories = new ArrayList<>();
+        List<Location> dropLocations = new ArrayList<>();
+
+        if (coreBarrel != null) {
+            inventories.add(coreBarrel);
+            dropLocations.add(anchorLoc);
+        }
         for (ContainerRef ref : barrels) {
-            if (ref.isCore()) continue;
-            remaining = consumePearlAmount(ref.getInventory(), remaining);
-            if (remaining <= 0) break;
+            if (ref.isCore()) {
+                continue;
+            }
+            inventories.add(ref.getInventory());
+            dropLocations.add(ref.getDropLocation());
         }
         for (ContainerRef ref : others) {
-            remaining = consumePearlAmount(ref.getInventory(), remaining);
-            if (remaining <= 0) break;
+            inventories.add(ref.getInventory());
+            dropLocations.add(ref.getDropLocation());
         }
-        remaining = consumePearlAmount(player.getInventory(), remaining);
+        inventories.add(player.getInventory());
+        dropLocations.add(player.getLocation());
 
-        if (remaining <= 0) {
-            return true;
+        int remainingCost = amount;
+
+        // Phase 1: pay large portion with ingots
+        int idealIngots = remainingCost / PEARL_VALUE;
+        if (idealIngots > 0) {
+            int takenIngots = 0;
+            for (Inventory inv : inventories) {
+                if (takenIngots >= idealIngots) {
+                    break;
+                }
+                takenIngots += takeItems(inv, true, idealIngots - takenIngots);
+            }
+            remainingCost -= takenIngots * PEARL_VALUE;
         }
 
-        // 2) convert ingots when pearls are insufficient
-        remaining = consumeIngotAmount(coreBarrel, anchorLoc, remaining);
-        for (ContainerRef ref : barrels) {
-            if (ref.isCore()) continue;
-            remaining = consumeIngotAmount(ref.getInventory(), ref.getDropLocation(), remaining);
-            if (remaining <= 0) break;
+        // Phase 2: pay remainder with pearls
+        if (remainingCost > 0) {
+            int takenPearls = 0;
+            for (Inventory inv : inventories) {
+                if (takenPearls >= remainingCost) {
+                    break;
+                }
+                takenPearls += takeItems(inv, false, remainingCost - takenPearls);
+            }
+            remainingCost -= takenPearls;
         }
-        for (ContainerRef ref : others) {
-            remaining = consumeIngotAmount(ref.getInventory(), ref.getDropLocation(), remaining);
-            if (remaining <= 0) break;
-        }
-        remaining = consumeIngotAmount(player.getInventory(), player.getLocation(), remaining);
 
-        return remaining <= 0;
+        // Phase 3: if pearls are short, break one ingot for change
+        if (remainingCost > 0) {
+            for (int i = 0; i < inventories.size(); i++) {
+                if (remainingCost <= 0) {
+                    break;
+                }
+                Inventory inv = inventories.get(i);
+                Location dropLoc = dropLocations.get(i);
+                if (takeItems(inv, true, 1) == 1) {
+                    int change = PEARL_VALUE - remainingCost;
+                    refundPearls(inv, dropLoc, change, dropLoc.getWorld());
+                    remainingCost = 0;
+                }
+            }
+        }
+
+        return remainingCost <= 0;
+    }
+
+    /**
+     * Removes up to maxToTake items of the requested type.
+     * @param targetIsIngot true for ingots, false for pearls
+     * @return number of items removed
+     */
+    private int takeItems(Inventory inventory, boolean targetIsIngot, int maxToTake) {
+        if (inventory == null || maxToTake <= 0) {
+            return 0;
+        }
+        int taken = 0;
+        ItemStack[] contents = inventory.getContents();
+        for (int i = 0; i < contents.length && taken < maxToTake; i++) {
+            ItemStack stack = contents[i];
+            if (stack == null) {
+                continue;
+            }
+            boolean isIngot = CustomItems.isEnderIngot(stack);
+            boolean isPearl = stack.getType() == Material.ENDER_PEARL && !isIngot;
+            if (targetIsIngot && !isIngot) {
+                continue;
+            }
+            if (!targetIsIngot && !isPearl) {
+                continue;
+            }
+            int available = stack.getAmount();
+            int toRemove = Math.min(available, maxToTake - taken);
+            stack.setAmount(available - toRemove);
+            if (stack.getAmount() <= 0) {
+                inventory.setItem(i, null);
+            }
+            taken += toRemove;
+        }
+        return taken;
     }
 
     private Inventory getCoreBarrel(Location anchorLoc) {
