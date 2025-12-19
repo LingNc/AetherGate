@@ -6,6 +6,7 @@ import cn.lingnc.aethergate.item.CustomItems;
 import cn.lingnc.aethergate.model.Waypoint;
 import cn.lingnc.aethergate.teleport.TeleportMenuService;
 import cn.lingnc.aethergate.teleport.TeleportService;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
@@ -14,6 +15,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffectType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,6 +57,7 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
             case "debug" -> requirePlayer(sender, this::handleDebugToggle);
             case "debugtp" -> requirePlayer(sender, player -> handleDebugTeleport(player, Arrays.copyOfRange(args, 1, args.length)));
             case "cancel" -> requirePlayer(sender, this::handleCancel);
+            case "fix" -> handleFix(sender, args);
             default -> {
                 sendHelp(sender);
                 yield true;
@@ -201,6 +204,46 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    /**
+     * @param sender
+     * @param args
+     * @return
+     */
+    private boolean handleFix(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("aethergate.admin")) {
+            sender.sendMessage("§c你没有权限执行修复。");
+            return true;
+        }
+        Player target;
+        if (args.length >= 2) {
+            target = Bukkit.getPlayerExact(args[1]);
+            if (target == null) {
+                sender.sendMessage("§c找不到在线玩家: " + args[1]);
+                return true;
+            }
+        } else {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("§c控制台请指定玩家: /aether fix <玩家>。");
+                return true;
+            }
+            target = player;
+        }
+
+        target.setInvulnerable(false);
+        target.setWalkSpeed(0.2f);
+        target.setFlySpeed(0.1f);
+        target.setSprinting(false);
+        target.removePotionEffect(PotionEffectType.JUMP_BOOST);
+        target.removePotionEffect(PotionEffectType.BLINDNESS);
+        target.removePotionEffect(PotionEffectType.REGENERATION);
+
+        target.sendMessage("§a已重置传送保护状态。");
+        if (!target.equals(sender)) {
+            sender.sendMessage("§a已重置 " + target.getName() + " 的传送保护状态。");
+        }
+        return true;
+    }
+
     private Waypoint resolveDestination(String input) {
         try {
             UUID id = UUID.fromString(input);
@@ -246,11 +289,12 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§b/aether give_block <anchor|pearl> [数量] §7- 管理员发放物品");
         sender.sendMessage("§b/aether reload §7- 重新载入配置");
         sender.sendMessage("§b/aether debug §7- 切换结构调试模式");
+        sender.sendMessage("§b/aether fix [玩家] §7- 解除无敌并重置移动状态");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> subs = List.of("list", "book", "travel", "give_block", "reload", "debug", "debugtp", "cancel");
+        List<String> subs = List.of("list", "book", "travel", "give_block", "reload", "debug", "debugtp", "cancel", "fix");
         if (args.length == 1) {
             String prefix = args[0].toLowerCase(Locale.ROOT);
             return subs.stream().filter(s -> s.startsWith(prefix)).collect(Collectors.toList());
@@ -260,6 +304,7 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
             return altarService.getActiveAltars().stream()
                     .map(Waypoint::getName)
                     .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(partial))
+                    .sorted()
                     .collect(Collectors.toList());
         }
         if (args[0].equalsIgnoreCase("give_block") && args.length == 2) {
@@ -270,6 +315,15 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
             return altarService.getActiveAltars().stream()
                     .map(Waypoint::getName)
                     .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(partial))
+                    .sorted()
+                    .collect(Collectors.toList());
+        }
+        if (args[0].equalsIgnoreCase("fix") && args.length == 2) {
+            String prefix = args[1].toLowerCase(Locale.ROOT);
+            return Bukkit.getOnlinePlayers().stream()
+                    .map(Player::getName)
+                    .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(prefix))
+                    .sorted()
                     .collect(Collectors.toList());
         }
         return new ArrayList<>();
