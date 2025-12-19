@@ -189,3 +189,11 @@ Added cancel dissipate effect plus a reusable spawnParticleAt helper; preview wi
 #### plan 6.1
 Updated teleporter visuals to “Organic Helix”: added tighter radius/step constants, jitter-capable helper, breathing double-helix warmup with dense enchant dust and head-level blinding burst; companion entities get scaled strands.
 Arrival preview now performs rapid skyfall from SKY_HEIGHT, maintaining a dense descending helix; departure burst launches high-velocity rods with enchant residue; arrival burst implodes toward the player; cancel now dissipates both local and preview beams.
+### plan 7
+为生物增加保护规则
+Added safe-list knockback: executeTeleport now builds a whitelist of the player and all teleport targets, passing it to knockbackNearby, which skips listed UUIDs and any tamed mob whose owner is whitelisted.
+Non-player living entities get 2 seconds of no-damage ticks after teleport to prevent immediate self-hit damage.
+#### fix 2
+Added TeleportService.shutdown() to abort all active teleports and clear lock sets, and call it from AetherGatePlugin.onDisable() so invulnerability/locks are cleared on reload/shutdown.
+#### fix 3
+增加清除保护状态命令。
