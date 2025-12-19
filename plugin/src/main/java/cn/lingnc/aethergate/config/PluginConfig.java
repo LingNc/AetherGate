@@ -34,6 +34,10 @@ public class PluginConfig {
         return config.getInt("teleport.menu.other-page-entries", 7);
     }
 
+    public double getTeleportAllowedMovementRadius() {
+        return config.getDouble("teleport.allowable-movement-radius", 0.5);
+    }
+
     public String getSacrificeSuccessMessage() {
         return config.getString("death-messages.sacrifice-success", "%player% 被献祭了");
     }

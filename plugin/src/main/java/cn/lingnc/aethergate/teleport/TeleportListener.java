@@ -25,15 +25,7 @@ public class TeleportListener implements Listener {
 
     @EventHandler
     public void onMove(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        UUID uuid = player.getUniqueId();
-        if (!teleportService.isPlayerLocked(uuid)) {
-            return;
-        }
-        if (!hasPositionChanged(event)) {
-            return;
-        }
-        teleportService.cancelTeleport(player, "§c你移动了，传送被打断。");
+        teleportService.handleMove(event);
     }
 
     @EventHandler
@@ -103,11 +95,5 @@ public class TeleportListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         teleportService.handlePlayerQuit(event.getPlayer().getUniqueId());
-    }
-
-    private boolean hasPositionChanged(PlayerMoveEvent event) {
-        return event.getFrom().getX() != event.getTo().getX()
-                || event.getFrom().getY() != event.getTo().getY()
-                || event.getFrom().getZ() != event.getTo().getZ();
     }
 }
