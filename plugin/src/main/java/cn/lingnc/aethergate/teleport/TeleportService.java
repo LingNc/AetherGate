@@ -47,6 +47,9 @@ public class TeleportService {
     private static final int WARMUP_TICKS = 60; // ~3 seconds
     private static final int RECOVERY_TICKS = 40; // ~2 seconds cool down window
     private static final int PREVIEW_TICKS = 30; // ticks before teleport to show arrival beam
+    private static final double HELIX_RADIUS = 0.7;
+    private static final double VERTICAL_STEP = 0.1;
+    private static final double SKY_HEIGHT = 40.0;
 
     private final AetherGatePlugin plugin;
     private final AltarService altarService;
@@ -608,18 +611,35 @@ public class TeleportService {
                 return;
             }
             double progress = Math.min(1.0, (double) tick / WARMUP_TICKS);
-            double currentHeight = 2.2 * progress;
-            double radius = 1.0;
-            double timeOffset = tick * 0.2;
+            double currentHeight = (progress < 0.9)
+                    ? (2.2 * (progress / 0.9))
+                    : (2.2 + (SKY_HEIGHT * (progress - 0.9) * 10));
 
-            // Primary double helix for the player
-            for (double h = 0.0; h <= currentHeight; h += 0.2) {
-                double angle = h * 2.0 + timeOffset;
-                spawnParticleAt(lockPoint, radius, h, angle, Particle.END_ROD);
-                spawnParticleAt(lockPoint, radius, h, angle + Math.PI, Particle.ENCHANT);
+            Location center = lockPoint.clone();
+            double timeOffset = tick * 0.35;
+            double baseRadius = HELIX_RADIUS;
+
+            for (double h = 0.0; h <= currentHeight; h += VERTICAL_STEP) {
+                double angle = h * 3.0 + timeOffset;
+
+                double r1 = baseRadius + Math.sin(h * 5 + tick * 0.1) * 0.1;
+                spawnParticleAt(center, r1, h, angle, Particle.END_ROD);
+
+                for (int i = 0; i < 2; i++) {
+                    double offsetAngle = angle + Math.PI + (i * 0.5);
+                    spawnParticleAt(center, baseRadius, h, offsetAngle, Particle.ENCHANT, 0.2);
+                    if (h % 0.3 < 0.1) {
+                        spawnParticleAt(center, baseRadius * 1.5, h, offsetAngle, Particle.ENCHANT, 0.2);
+                    }
+                }
+
+                if (h > 1.5 && h < 1.8 && progress > 0.8) {
+                    center.getWorld().spawnParticle(Particle.END_ROD,
+                            center.getX(), center.getY() + 1.6, center.getZ(),
+                            5, 0.2, 0.2, 0.2, 0.05);
+                }
             }
 
-            // Companion entities get their own scaled helix
             for (Entity entity : targets) {
                 if (entity == null || !entity.isValid() || entity.getWorld() == null) {
                     continue;
@@ -627,14 +647,14 @@ public class TeleportService {
                 if (entity.getUniqueId().equals(player.getUniqueId())) {
                     continue;
                 }
-                Location center = entity.getLocation().toCenterLocation();
+                Location compCenter = entity.getLocation().toCenterLocation();
                 double height = Math.max(1.0, entity.getBoundingBox().getHeight());
                 double maxHeight = Math.min(height + 0.5, currentHeight);
-                double companionRadius = Math.max(0.6, radius * 0.7);
-                for (double h = 0.0; h <= maxHeight; h += 0.25) {
-                    double angle = h * 2.0 + timeOffset;
-                    spawnParticleAt(center, companionRadius, h, angle, Particle.END_ROD);
-                    spawnParticleAt(center, companionRadius, h, angle + Math.PI, Particle.WITCH);
+                double companionRadius = Math.max(0.5, baseRadius * 0.8);
+                for (double h = 0.0; h <= maxHeight; h += VERTICAL_STEP) {
+                    double angle = h * 3.0 + timeOffset;
+                    spawnParticleAt(compCenter, companionRadius, h, angle, Particle.END_ROD);
+                    spawnParticleAt(compCenter, companionRadius, h, angle + Math.PI, Particle.WITCH, 0.15);
                 }
             }
         }
@@ -647,15 +667,20 @@ public class TeleportService {
             double progress = 1.0 - (Math.max(0, remaining) / (double) PREVIEW_TICKS);
             progress = Math.min(1.0, Math.max(0.0, progress));
 
-            double startHeight = 5.0;
-            double currentBottom = startHeight * (1.0 - progress);
-            double radius = 1.0;
-            double timeOffset = tick * 0.2;
+            double dropProgress = Math.min(1.0, progress * 3.0);
+            double currentBottom = SKY_HEIGHT * (1.0 - dropProgress);
+            double timeOffset = tick * 0.35;
 
-            for (double h = currentBottom; h <= startHeight; h += 0.2) {
-                double angle = h * 2.0 + timeOffset;
-                spawnParticleAt(arrival, radius, h, angle, Particle.END_ROD);
-                spawnParticleAt(arrival, radius, h, angle + Math.PI, Particle.ENCHANT);
+            for (double h = currentBottom; h <= 20.0; h += 0.2) {
+                if (h < 0.0) {
+                    continue;
+                }
+                double angle = h * 3.0 - timeOffset;
+                spawnParticleAt(arrival, HELIX_RADIUS, h, angle, Particle.ENCHANT, 0.1);
+                spawnParticleAt(arrival, HELIX_RADIUS, h, angle + Math.PI, Particle.ENCHANT, 0.1);
+                if (h % 0.4 < 0.1) {
+                    spawnParticleAt(arrival, HELIX_RADIUS, h, angle + Math.PI / 2.0, Particle.END_ROD);
+                }
             }
 
             for (Entity entity : targets) {
@@ -670,13 +695,18 @@ public class TeleportService {
                 if (offset != null) {
                     dest.add(offset);
                 }
-                double companionRadius = 0.9;
+                double companionRadius = Math.max(0.6, HELIX_RADIUS * 0.9);
                 double height = Math.max(1.0, entity.getBoundingBox().getHeight());
-                double maxHeight = Math.min(startHeight, height + 1.0);
-                for (double h = currentBottom; h <= maxHeight; h += 0.25) {
-                    double angle = h * 2.0 + timeOffset;
-                    spawnParticleAt(dest, companionRadius, h, angle, Particle.END_ROD);
-                    spawnParticleAt(dest, companionRadius, h, angle + Math.PI, Particle.WITCH);
+                double maxHeight = Math.min(15.0, height + 1.0);
+                for (double h = currentBottom; h <= maxHeight; h += 0.2) {
+                    if (h < 0.0) {
+                        continue;
+                    }
+                    double angle = h * 3.0 - timeOffset;
+                    spawnParticleAt(dest, companionRadius, h, angle, Particle.ENCHANT, 0.1);
+                    if (h % 0.5 < 0.12) {
+                        spawnParticleAt(dest, companionRadius, h, angle + Math.PI, Particle.END_ROD);
+                    }
                 }
             }
         }
@@ -700,23 +730,32 @@ public class TeleportService {
 
         private void spawnDepartureBurst(World world) {
             Location base = originBlockLoc.clone().add(0.5, 0.0, 0.5);
-            for (double h = 0.0; h < 15.0; h += 0.5) {
-                double angle = h * 1.5;
-                spawnParticleAt(base, 1.2, h, angle, Particle.END_ROD);
-                spawnParticleAt(base, 1.2, h, angle + Math.PI, Particle.ENCHANT);
+            for (int i = 0; i < 50; i++) {
+                double angle = random.nextDouble() * Math.PI * 2;
+                double r = 0.5 + random.nextDouble() * 0.5;
+                double x = Math.cos(angle) * r;
+                double z = Math.sin(angle) * r;
+                world.spawnParticle(Particle.END_ROD,
+                        base.getX() + x, base.getY(), base.getZ() + z,
+                        0, 0.0, 3.0 + random.nextDouble(), 0.0, 1.0);
             }
+            world.spawnParticle(Particle.ENCHANT, base.clone().add(0, 1, 0), 100, 0.5, 5.0, 0.5, 0.1);
             world.playSound(base, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 1.0f, 1.2f);
         }
 
         private void spawnArrivalBurst(World world) {
-            Location center = arrival.clone().add(0, 1, 0);
-            for (int i = 0; i < 20; i++) {
-                double angle = (Math.PI * 2 * i) / 20.0;
-                double x = Math.cos(angle) * 2.0;
-                double z = Math.sin(angle) * 2.0;
-                world.spawnParticle(Particle.END_ROD, center.getX() + x, center.getY(), center.getZ() + z,
-                        0, -x * 0.2, 0.0, -z * 0.2, 0.5);
+            Location center = arrival.clone().add(0, 1.0, 0);
+            for (int i = 0; i < 60; i++) {
+                double angle = random.nextDouble() * Math.PI * 2;
+                double r = 3.0;
+                double xOffset = Math.cos(angle) * r;
+                double zOffset = Math.sin(angle) * r;
+                double yOffset = (random.nextDouble() - 0.5) * 2.0;
+                world.spawnParticle(Particle.END_ROD,
+                        center.getX() + xOffset, center.getY() + yOffset, center.getZ() + zOffset,
+                        0, -xOffset * 0.15, -yOffset * 0.15, -zOffset * 0.15, 1.0);
             }
+            world.spawnParticle(Particle.ENCHANT, center, 100, 2.0, 2.0, 2.0, 1.0);
             world.playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
         }
 
@@ -725,7 +764,16 @@ public class TeleportService {
             if (world == null) {
                 return;
             }
-            world.spawnParticle(Particle.CLOUD, lockPoint.clone().add(0, 1, 0), 20, 0.5, 1.0, 0.5, 0.1);
+            world.spawnParticle(Particle.CLOUD, lockPoint.clone().add(0, 1, 0), 30, 0.5, 1.0, 0.5, 0.05);
+
+            if (tick >= WARMUP_TICKS - PREVIEW_TICKS && arrival.getWorld() != null) {
+                for (double h = 0.0; h < 5.0; h += 0.5) {
+                    arrival.getWorld().spawnParticle(Particle.ENCHANT, arrival.clone().add(0, h, 0),
+                            10, 0.5, 0.0, 0.5, 0.2);
+                        arrival.getWorld().spawnParticle(Particle.SMOKE, arrival.clone().add(0, h, 0),
+                            5, 0.2, 0.0, 0.2, 0.05);
+                }
+            }
             world.playSound(lockPoint, Sound.BLOCK_CANDLE_EXTINGUISH, 1.0f, 1.0f);
         }
 
@@ -737,11 +785,19 @@ public class TeleportService {
         }
 
         private void spawnParticleAt(Location center, double radius, double y, double angle, Particle particle) {
+            spawnParticleAt(center, radius, y, angle, particle, 0.0);
+        }
+
+        private void spawnParticleAt(Location center, double radius, double y, double angle, Particle particle, double jitter) {
             if (center == null || center.getWorld() == null) {
                 return;
             }
             double x = center.getX() + Math.cos(angle) * radius;
             double z = center.getZ() + Math.sin(angle) * radius;
+            if (jitter > 0.0) {
+                x += (random.nextDouble() - 0.5) * jitter;
+                z += (random.nextDouble() - 0.5) * jitter;
+            }
             center.getWorld().spawnParticle(particle, x, center.getY() + y, z, 1, 0, 0, 0, 0);
         }
 
