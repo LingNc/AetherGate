@@ -920,6 +920,14 @@ public class TeleportService {
         }
     }
 
+    public void shutdown() {
+        for (TeleportTask task : new ArrayList<>(activeTasks.values())) {
+            task.abort("§c插件重载，传送强制取消。");
+        }
+        activeTasks.clear();
+        globalLockedEntities.clear();
+    }
+
     private boolean ensureStructureIntegrity(Block anchorBlock, Player player, boolean notifyPlayer) {
         if (anchorBlock == null) {
             return false;
