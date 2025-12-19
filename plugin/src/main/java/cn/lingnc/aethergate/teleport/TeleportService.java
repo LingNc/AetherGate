@@ -14,7 +14,12 @@ import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Interaction;
+import org.bukkit.entity.Item;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Marker;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Tameable;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -24,11 +29,12 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -83,10 +89,14 @@ public class TeleportService {
             player.sendMessage("§c祭坛处于休眠状态，请先重新充能。");
             return false;
         }
-        Entity rootEntity = findRootVehicle(player);
-        UUID rootId = rootEntity.getUniqueId();
-        if (globalLockedEntities.contains(rootId)) {
+        Entity playerRoot = findRootVehicle(player);
+        UUID playerRootId = playerRoot.getUniqueId();
+        if (globalLockedEntities.contains(playerRootId)) {
             player.sendMessage("§c该实体正在被另一个传送占用。");
+            return false;
+        }
+        if (playerRoot.getPassengers().stream().anyMatch(p -> p instanceof Player && !((Player) p).getUniqueId().equals(uuid))) {
+            player.sendMessage("§c无法传送：你的载具上有其他玩家。");
             return false;
         }
         Location destinationBlockLoc = getBlockLocation(destinationRequest);
@@ -108,8 +118,15 @@ public class TeleportService {
             player.sendMessage("§c目标祭坛附近没有安全的落点。");
             return false;
         }
+        List<Entity> targets = collectTargets(player, originBlock.getLocation(), playerRoot);
+        int paidCost = computePaidCost(player, targets);
+        int totalCost = 1 + paidCost; // player base cost + paid entities
+        if (!costManager.hasEnoughPearls(originBlock.getLocation(), player, totalCost)) {
+            player.sendMessage("§c传送失败：需要 " + totalCost + " 份末影能量。");
+            return false;
+        }
         TeleportTask task = new TeleportTask(player, originBlock.getLocation(), originWaypoint,
-                liveDestination, arrivalSpot, rootId);
+            liveDestination, arrivalSpot, targets, totalCost);
         activeTasks.put(uuid, task);
         task.runTaskTimer(plugin, 0L, 1L);
         return true;
@@ -242,6 +259,67 @@ public class TeleportService {
         return candidates.get(random.nextInt(candidates.size()));
     }
 
+    private List<Entity> collectTargets(Player player, Location originLoc, Entity playerRoot) {
+        List<Entity> roots = new ArrayList<>();
+        Set<UUID> seen = new HashSet<>();
+        if (playerRoot != null && seen.add(playerRoot.getUniqueId())) {
+            roots.add(playerRoot);
+        }
+        World world = originLoc.getWorld();
+        if (world == null) {
+            return roots;
+        }
+        double range = Math.max(2.5, plugin.getPluginConfig().getInteractionRadius() + 0.5);
+        Collection<Entity> nearby = world.getNearbyEntities(originLoc, range, 3.0, range);
+        for (Entity entity : nearby) {
+            Entity root = findRootVehicle(entity);
+            if (root == null || !seen.add(root.getUniqueId())) {
+                continue;
+            }
+            if (globalLockedEntities.contains(root.getUniqueId())) {
+                continue;
+            }
+            if (root instanceof Player other && !other.getUniqueId().equals(player.getUniqueId())) {
+                continue;
+            }
+            if (root instanceof Tameable tameable && tameable.isTamed() && tameable.getOwner() != null
+                    && !tameable.getOwner().getUniqueId().equals(player.getUniqueId())) {
+                continue;
+            }
+            if (root.getPassengers().stream().anyMatch(p -> p instanceof Player && !((Player) p).getUniqueId().equals(player.getUniqueId()))) {
+                continue;
+            }
+            if (root instanceof Interaction || root instanceof Marker || root instanceof ItemDisplay || root instanceof BlockDisplay) {
+                continue;
+            }
+            roots.add(root);
+        }
+        return roots;
+    }
+
+    private int computePaidCost(Player player, List<Entity> targets) {
+        int paid = 0;
+        UUID playerId = player.getUniqueId();
+        for (Entity target : targets) {
+            if (target == null) {
+                continue;
+            }
+            if (target.getUniqueId().equals(playerId)) {
+                continue; // player base cost handled separately
+            }
+            if (target instanceof Item) {
+                continue; // loose items are free
+            }
+            if (target instanceof Tameable tameable && tameable.isTamed()
+                    && tameable.getOwner() != null
+                    && tameable.getOwner().getUniqueId().equals(playerId)) {
+                continue; // owned pets are free
+            }
+            paid++;
+        }
+        return paid;
+    }
+
     private class TeleportTask extends BukkitRunnable {
 
         private final Player player;
@@ -252,13 +330,15 @@ public class TeleportService {
         private final boolean prevInvulnerable;
         private final float prevWalkSpeed;
         private final float prevFlySpeed;
-        private final UUID lockedRoot;
+        private final List<Entity> targets;
+        private final Set<UUID> lockedRoots = new HashSet<>();
+        private final int totalCost;
         private boolean performedTeleport = false;
         private boolean internalTeleporting = false;
         private int tick = 0;
 
         TeleportTask(Player player, Location originBlockLoc, Waypoint origin,
-                     Waypoint destination, Location arrival, UUID lockedRoot) {
+                     Waypoint destination, Location arrival, List<Entity> targets, int totalCost) {
             this.player = player;
             this.originBlockLoc = originBlockLoc.clone();
             this.destination = destination;
@@ -267,8 +347,15 @@ public class TeleportService {
             this.prevInvulnerable = player.isInvulnerable();
             this.prevWalkSpeed = player.getWalkSpeed();
             this.prevFlySpeed = player.getFlySpeed();
-            this.lockedRoot = lockedRoot;
-            globalLockedEntities.add(lockedRoot);
+            this.targets = targets;
+            this.totalCost = totalCost;
+            for (Entity target : targets) {
+                if (target != null) {
+                    UUID id = target.getUniqueId();
+                    lockedRoots.add(id);
+                    globalLockedEntities.add(id);
+                }
+            }
             applyLock();
             player.sendMessage("§f>> §b以太能量锁定，保持冷静……");
             player.playSound(lockPoint, Sound.BLOCK_RESPAWN_ANCHOR_AMBIENT, 0.8f, 1.1f);
@@ -323,7 +410,7 @@ public class TeleportService {
             if (anchorBlock.getType() != Material.LODESTONE || !altarService.isAnchorBlock(anchorBlock)) {
                 return false;
             }
-            if (!costManager.consumePearls(originBlockLoc, player, 1)) {
+            if (!costManager.consumePearls(originBlockLoc, player, totalCost)) {
                 return false;
             }
             return altarService.consumeCharge(originBlockLoc);
@@ -337,9 +424,7 @@ public class TeleportService {
                 spawnDepartureBurst(world);
                 scheduleThunder(world, originBlockLoc.clone().add(0.5, 0.0, 0.5));
             }
-            internalTeleporting = true;
-            player.teleport(arrival);
-            internalTeleporting = false;
+            teleportTargets();
             World arrivalWorld = arrival.getWorld();
             if (arrivalWorld != null) {
                 arrivalWorld.strikeLightningEffect(arrival);
@@ -351,6 +436,31 @@ public class TeleportService {
             plugin.getAchievementService().handleTeleportComplete(player);
             player.playSound(arrival, Sound.ENTITY_ENDERMAN_STARE, 0.8f, 1.4f);
             player.sendMessage("§b空间折跃完成，正在重构形体……");
+        }
+
+        private void teleportTargets() {
+            World destWorld = arrival.getWorld();
+            if (destWorld == null) {
+                return;
+            }
+            for (Entity target : targets) {
+                if (target == null || !target.isValid()) {
+                    continue;
+                }
+                Location dest = arrival.clone();
+                if (!(target instanceof Player)) {
+                    double offsetX = (random.nextDouble() - 0.5) * 0.8;
+                    double offsetZ = (random.nextDouble() - 0.5) * 0.8;
+                    dest.add(offsetX, 0, offsetZ);
+                }
+                if (target instanceof Player p) {
+                    internalTeleporting = true;
+                    p.teleport(dest);
+                    internalTeleporting = false;
+                } else {
+                    target.teleport(dest);
+                }
+            }
         }
 
         private void spawnWarmupParticles() {
@@ -476,9 +586,7 @@ public class TeleportService {
             player.setWalkSpeed(prevWalkSpeed);
             player.setFlySpeed(prevFlySpeed);
             PotionUtil.clearLockEffects(player);
-            if (lockedRoot != null) {
-                globalLockedEntities.remove(lockedRoot);
-            }
+            lockedRoots.forEach(globalLockedEntities::remove);
         }
 
         Location getLockPoint() {
