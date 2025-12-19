@@ -436,10 +436,18 @@ public class TeleportService {
             teleportTargets();
             World arrivalWorld = arrival.getWorld();
             if (arrivalWorld != null) {
+                Set<UUID> safeIds = new HashSet<>();
+                safeIds.add(player.getUniqueId());
+                for (Entity target : targets) {
+                    if (target != null) {
+                        safeIds.add(target.getUniqueId());
+                    }
+                }
+
                 arrivalWorld.strikeLightningEffect(arrival);
                 spawnArrivalBurst(arrivalWorld);
                 spawnArrivalShockwave(arrivalWorld, arrival);
-                knockbackNearby(arrivalWorld);
+                knockbackNearby(arrivalWorld, safeIds);
                 scheduleThunder(arrivalWorld, arrival.clone());
             }
             plugin.getAchievementService().handleTeleportComplete(player);
@@ -490,6 +498,9 @@ public class TeleportService {
                 internalTeleporting = false;
             } else {
                 entity.teleport(dest);
+                if (entity instanceof LivingEntity living) {
+                    living.setNoDamageTicks(40);
+                }
             }
         }
 
@@ -801,13 +812,17 @@ public class TeleportService {
             center.getWorld().spawnParticle(particle, x, center.getY() + y, z, 1, 0, 0, 0, 0);
         }
 
-        private void knockbackNearby(World world) {
+        private void knockbackNearby(World world, Set<UUID> safeEntities) {
             Collection<Entity> nearby = world.getNearbyEntities(arrival, 5.0, 3.0, 5.0);
             for (Entity entity : nearby) {
-                if (entity.equals(player)) {
+                if (entity == null) {
                     continue;
                 }
-                if (entity instanceof Tameable tameable && tameable.isTamed()) {
+                if (safeEntities.contains(entity.getUniqueId())) {
+                    continue;
+                }
+                if (entity instanceof Tameable tameable && tameable.isTamed() && tameable.getOwner() != null
+                        && safeEntities.contains(tameable.getOwner().getUniqueId())) {
                     continue;
                 }
                 if (!(entity instanceof LivingEntity living)) {
