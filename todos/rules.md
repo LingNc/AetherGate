@@ -12,7 +12,10 @@
 git status -sb
 git checkout -b feat/<功能名> develop
 # ... 写代码，提交 ...
-git commit -m "中文描述..."
+git commit -m "feat: 中文描述...本次开发进度"
+# ...继续写代码，提交...
+git commit -m "feat: 中文描述...本次开发进度"
+# 开发完成之后进入合成
 ```
 3. 合并功能
 ```bash
