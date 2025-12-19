@@ -19,6 +19,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Tameable;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
+import org.bukkit.event.player.PlayerMoveEvent;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -124,6 +125,32 @@ public class TeleportService {
         }
     }
 
+    public void handleMove(PlayerMoveEvent event) {
+        if (event == null) {
+            return;
+        }
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        TeleportTask task = activeTasks.get(uuid);
+        if (task == null) {
+            return;
+        }
+        Location lockPoint = task.getLockPoint();
+        if (lockPoint == null || event.getTo() == null) {
+            return;
+        }
+        double allowed = Math.max(0.0, plugin.getPluginConfig().getTeleportAllowedMovementRadius());
+        if (allowed == 0.0) {
+            if (!sameBlock(event.getTo(), lockPoint)) {
+                cancelTeleport(player, "§c传送被打断：请保持静止。");
+            }
+            return;
+        }
+        if (event.getTo().toVector().setY(0).distanceSquared(lockPoint.toVector().setY(0)) > allowed * allowed) {
+            cancelTeleport(player, "§c传送被打断：移动超出允许范围。");
+        }
+    }
+
     public boolean isPlayerLocked(UUID uuid) {
         return activeTasks.containsKey(uuid);
     }
@@ -155,6 +182,16 @@ public class TeleportService {
 
     private boolean sameBlock(Waypoint a, Waypoint b) {
         return a.getWorldName().equalsIgnoreCase(b.getWorldName())
+                && a.getBlockX() == b.getBlockX()
+                && a.getBlockY() == b.getBlockY()
+                && a.getBlockZ() == b.getBlockZ();
+    }
+
+    private boolean sameBlock(Location a, Location b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return a.getWorld() != null && a.getWorld().equals(b.getWorld())
                 && a.getBlockX() == b.getBlockX()
                 && a.getBlockY() == b.getBlockY()
                 && a.getBlockZ() == b.getBlockZ();
