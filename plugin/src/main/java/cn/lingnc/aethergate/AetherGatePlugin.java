@@ -68,6 +68,9 @@ public class AetherGatePlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (teleportService != null) {
+            teleportService.shutdown();
+        }
         if (altarService != null) {
             altarService.clearVisuals();
         }
