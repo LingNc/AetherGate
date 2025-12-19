@@ -186,3 +186,6 @@ Reworked TeleportService to use a double-helix particle system: warmup now rises
 Arrival preview now grows a descending helix over 30 ticks, with offsets for accompanying entities.
 Departure burst renders a tall twin-spiral launch with a rocket sound; arrival burst is now an imploding ring with inward velocity and enderman sound.
 Added cancel dissipate effect plus a reusable spawnParticleAt helper; preview window constant set to 30 ticks.
+#### plan 6.1
+Updated teleporter visuals to “Organic Helix”: added tighter radius/step constants, jitter-capable helper, breathing double-helix warmup with dense enchant dust and head-level blinding burst; companion entities get scaled strands.
+Arrival preview now performs rapid skyfall from SKY_HEIGHT, maintaining a dense descending helix; departure burst launches high-velocity rods with enchant residue; arrival burst implodes toward the player; cancel now dissipates both local and preview beams.
