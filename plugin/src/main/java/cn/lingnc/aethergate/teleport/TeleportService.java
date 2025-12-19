@@ -152,6 +152,9 @@ public class TeleportService {
         if (task == null) {
             return;
         }
+        if (task.hasPerformedTeleport()) {
+            return;
+        }
         Location lockPoint = task.getLockPoint();
         if (lockPoint == null || event.getTo() == null) {
             return;
@@ -170,6 +173,11 @@ public class TeleportService {
 
     public boolean isPlayerLocked(UUID uuid) {
         return activeTasks.containsKey(uuid);
+    }
+
+    public int getRemainingWarmupTicks(UUID uuid) {
+        TeleportTask task = activeTasks.get(uuid);
+        return task == null ? -1 : task.getRemainingWarmupTicks();
     }
 
     public Location getLockLocation(UUID uuid) {
@@ -330,8 +338,10 @@ public class TeleportService {
         private final boolean prevInvulnerable;
         private final float prevWalkSpeed;
         private final float prevFlySpeed;
-        private final List<Entity> targets;
+        private final List<Entity> targets = new ArrayList<>();
         private final Set<UUID> lockedRoots = new HashSet<>();
+        private final Map<UUID, List<UUID>> rideRelations = new HashMap<>();
+        private final Map<UUID, Vector> arrivalOffsets = new HashMap<>();
         private final int totalCost;
         private boolean performedTeleport = false;
         private boolean internalTeleporting = false;
@@ -347,13 +357,18 @@ public class TeleportService {
             this.prevInvulnerable = player.isInvulnerable();
             this.prevWalkSpeed = player.getWalkSpeed();
             this.prevFlySpeed = player.getFlySpeed();
-            this.targets = targets;
             this.totalCost = totalCost;
+            Set<UUID> seen = new HashSet<>();
             for (Entity target : targets) {
+                addTargetWithPassengers(target, seen);
+            }
+            addTargetWithPassengers(player, seen);
+            for (Entity target : this.targets) {
                 if (target != null) {
                     UUID id = target.getUniqueId();
                     lockedRoots.add(id);
                     globalLockedEntities.add(id);
+                    arrivalOffsets.put(id, computeArrivalOffset(target));
                 }
             }
             applyLock();
@@ -418,6 +433,8 @@ public class TeleportService {
 
         private void executeTeleport() {
             performedTeleport = true;
+            captureRideRelations();
+            dismountAll();
             World world = originBlockLoc.getWorld();
             if (world != null) {
                 world.strikeLightningEffect(originBlockLoc);
@@ -443,23 +460,122 @@ public class TeleportService {
             if (destWorld == null) {
                 return;
             }
+            destWorld.getChunkAt(arrival).load();
+            List<Entity> nonPlayers = new ArrayList<>();
+            List<Player> players = new ArrayList<>();
             for (Entity target : targets) {
-                if (target == null || !target.isValid()) {
+                if (target == null) {
                     continue;
                 }
-                Location dest = arrival.clone();
-                if (!(target instanceof Player)) {
-                    double offsetX = (random.nextDouble() - 0.5) * 0.8;
-                    double offsetZ = (random.nextDouble() - 0.5) * 0.8;
-                    dest.add(offsetX, 0, offsetZ);
-                }
                 if (target instanceof Player p) {
-                    internalTeleporting = true;
-                    p.teleport(dest);
-                    internalTeleporting = false;
+                    players.add(p);
                 } else {
-                    target.teleport(dest);
+                    nonPlayers.add(target);
                 }
+            }
+            for (Entity target : nonPlayers) {
+                teleportEntity(target);
+            }
+            for (Player p : players) {
+                teleportEntity(p);
+            }
+            remountLater();
+        }
+
+        private void teleportEntity(Entity entity) {
+            if (entity == null || !entity.isValid()) {
+                return;
+            }
+            Location dest = arrival.clone();
+            Vector offset = arrivalOffsets.get(entity.getUniqueId());
+            if (offset != null) {
+                dest.add(offset);
+            }
+            if (entity instanceof Player p) {
+                internalTeleporting = true;
+                p.teleport(dest);
+                internalTeleporting = false;
+            } else {
+                entity.teleport(dest);
+            }
+        }
+
+        private void remountLater() {
+            Bukkit.getScheduler().runTaskLater(plugin, this::reapplyMounts, 2L);
+        }
+
+        private void reapplyMounts() {
+            for (Map.Entry<UUID, List<UUID>> entry : rideRelations.entrySet()) {
+                Entity vehicle = findEntity(entry.getKey());
+                if (vehicle == null || !vehicle.isValid()) {
+                    continue;
+                }
+                for (UUID passengerId : entry.getValue()) {
+                    Entity passenger = findEntity(passengerId);
+                    if (passenger == null || !passenger.isValid()) {
+                        continue;
+                    }
+                    vehicle.addPassenger(passenger);
+                }
+            }
+        }
+
+        private Entity findEntity(UUID id) {
+            for (Entity target : targets) {
+                if (target != null && target.getUniqueId().equals(id)) {
+                    return target;
+                }
+            }
+            return Bukkit.getEntity(id);
+        }
+
+        private void dismountAll() {
+            for (Entity entity : targets) {
+                if (entity == null || !entity.isValid()) {
+                    continue;
+                }
+                List<Entity> passengers = new ArrayList<>(entity.getPassengers());
+                for (Entity passenger : passengers) {
+                    entity.removePassenger(passenger);
+                }
+                entity.eject();
+            }
+        }
+
+        private void captureRideRelations() {
+            rideRelations.clear();
+            for (Entity vehicle : targets) {
+                if (vehicle == null || !vehicle.isValid()) {
+                    continue;
+                }
+                List<Entity> passengers = vehicle.getPassengers();
+                if (passengers.isEmpty()) {
+                    continue;
+                }
+                List<UUID> ids = new ArrayList<>();
+                for (Entity passenger : passengers) {
+                    ids.add(passenger.getUniqueId());
+                }
+                rideRelations.put(vehicle.getUniqueId(), ids);
+            }
+        }
+
+        private Vector computeArrivalOffset(Entity entity) {
+            if (entity instanceof Player) {
+                return new Vector(0, 0, 0);
+            }
+            double offsetX = (random.nextDouble() - 0.5) * 0.8;
+            double offsetZ = (random.nextDouble() - 0.5) * 0.8;
+            return new Vector(offsetX, 0.0, offsetZ);
+        }
+
+        private void addTargetWithPassengers(Entity entity, Set<UUID> seen) {
+            if (entity == null || !seen.add(entity.getUniqueId())) {
+                return;
+            }
+            targets.add(entity);
+            for (Entity passenger : entity.getPassengers()) {
+                addTargetWithPassengers(passenger, seen);
             }
         }
 
@@ -480,6 +596,21 @@ public class TeleportService {
             base.getWorld().spawnParticle(Particle.END_ROD, base.clone().add(0, 1.2, 0), 6, 0.4, 0.4, 0.4, 0.0);
             Particle.DustOptions dust = new Particle.DustOptions(Color.fromRGB(240, 240, 255), 1.2f);
             base.getWorld().spawnParticle(Particle.DUST, base, 8, radius / 4.0, 0.1, radius / 4.0, 0, dust);
+            for (Entity entity : targets) {
+                if (entity == null || !entity.isValid() || entity.getWorld() == null) {
+                    continue;
+                }
+                Location center = entity.getLocation().toCenterLocation();
+                double height = Math.max(1.0, entity.getBoundingBox().getHeight());
+                double ringRadius = Math.min(1.2, 0.4 + tick * 0.01);
+                for (int i = 0; i < 6; i++) {
+                    double angle = phase + (i / 6.0) * Math.PI * 2;
+                    double x = center.getX() + Math.cos(angle) * ringRadius;
+                    double y = center.getY() + 0.2 + (height * (i / 6.0));
+                    double z = center.getZ() + Math.sin(angle) * ringRadius;
+                    entity.getWorld().spawnParticle(Particle.WITCH, x, y, z, 1, 0, 0, 0, 0);
+                }
+            }
         }
 
         private void spawnArrivalPreview() {
@@ -487,10 +618,20 @@ public class TeleportService {
             if (arrivalWorld == null) {
                 return;
             }
-            double height = 4.0;
-            for (double y = 0; y <= height; y += 0.5) {
-                arrivalWorld.spawnParticle(Particle.ENCHANT, arrival.getX(), arrival.getY() + y, arrival.getZ(),
-                        4, 0.3, 0.0, 0.3, 0.0);
+            for (Entity entity : targets) {
+                if (entity == null || !entity.isValid()) {
+                    continue;
+                }
+                Location dest = arrival.clone();
+                Vector offset = arrivalOffsets.get(entity.getUniqueId());
+                if (offset != null) {
+                    dest.add(offset);
+                }
+                double height = Math.max(1.5, entity.getBoundingBox().getHeight() + 0.5);
+                for (double y = 0; y <= height; y += 0.4) {
+                    arrivalWorld.spawnParticle(Particle.ENCHANT, dest.getX(), dest.getY() + y, dest.getZ(),
+                            3, 0.15, 0.0, 0.15, 0.0);
+                }
             }
         }
 
@@ -595,6 +736,14 @@ public class TeleportService {
 
         boolean isInternalTeleport() {
             return internalTeleporting;
+        }
+
+        int getRemainingWarmupTicks() {
+            return Math.max(0, WARMUP_TICKS - tick);
+        }
+
+        boolean hasPerformedTeleport() {
+            return performedTeleport;
         }
     }
 

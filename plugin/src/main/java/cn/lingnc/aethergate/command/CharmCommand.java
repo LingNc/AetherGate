@@ -54,6 +54,7 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
             case "reload" -> handleReload(sender);
             case "debug" -> requirePlayer(sender, this::handleDebugToggle);
             case "debugtp" -> requirePlayer(sender, player -> handleDebugTeleport(player, Arrays.copyOfRange(args, 1, args.length)));
+            case "cancel" -> requirePlayer(sender, this::handleCancel);
             default -> {
                 sendHelp(sender);
                 yield true;
@@ -190,6 +191,16 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleCancel(Player player) {
+        if (!teleportService.isPlayerLocked(player.getUniqueId())) {
+            player.sendMessage("§e当前没有正在进行的传送。");
+            return true;
+        }
+        teleportService.cancelTeleport(player, "§e你主动中止了传送。");
+        menuService.clearPendingOrigin(player.getUniqueId());
+        return true;
+    }
+
     private Waypoint resolveDestination(String input) {
         try {
             UUID id = UUID.fromString(input);
@@ -231,6 +242,7 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§b/aether list §7- 查看所有激活的世界锚点");
         sender.sendMessage("§b/aether book §7- 面对锚点打开传送书");
         sender.sendMessage("§b/aether travel <目标> §7- 选择书中列出的目的地");
+        sender.sendMessage("§b/aether cancel §7- 中止正在进行的传送");
         sender.sendMessage("§b/aether give_block <anchor|pearl> [数量] §7- 管理员发放物品");
         sender.sendMessage("§b/aether reload §7- 重新载入配置");
         sender.sendMessage("§b/aether debug §7- 切换结构调试模式");
@@ -238,7 +250,7 @@ public class CharmCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> subs = List.of("list", "book", "travel", "give_block", "reload", "debug", "debugtp");
+        List<String> subs = List.of("list", "book", "travel", "give_block", "reload", "debug", "debugtp", "cancel");
         if (args.length == 1) {
             String prefix = args[0].toLowerCase(Locale.ROOT);
             return subs.stream().filter(s -> s.startsWith(prefix)).collect(Collectors.toList());

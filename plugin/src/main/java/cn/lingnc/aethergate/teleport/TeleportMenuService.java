@@ -29,16 +29,31 @@ public class TeleportMenuService {
 
     private final AetherGatePlugin plugin;
     private final AltarService altarService;
+    private final TeleportService teleportService;
     private final Map<UUID, Location> pendingOrigins = new HashMap<>();
     private final PearlCostManager costProbe = new PearlCostManager();
 
-    public TeleportMenuService(AetherGatePlugin plugin, AltarService altarService) {
+    public TeleportMenuService(AetherGatePlugin plugin, AltarService altarService, TeleportService teleportService) {
         this.plugin = plugin;
         this.altarService = altarService;
+        this.teleportService = teleportService;
     }
 
     public boolean openMenu(Player player, Block originBlock) {
-        if (player == null || originBlock == null) {
+        if (player == null) {
+            return false;
+        }
+        if (teleportService.isPlayerLocked(player.getUniqueId())) {
+            int remaining = teleportService.getRemainingWarmupTicks(player.getUniqueId());
+            ItemStack cancel = buildCancelBook(remaining);
+            if (cancel == null) {
+                player.sendMessage("§c无法显示取消页面，请稍后重试。");
+                return false;
+            }
+            player.openBook(cancel);
+            return true;
+        }
+        if (originBlock == null) {
             return false;
         }
         if (originBlock.getType() != Material.LODESTONE || !altarService.isAnchorBlock(originBlock)) {
@@ -87,6 +102,32 @@ public class TeleportMenuService {
         Component header = buildHeader(originWaypoint, ready);
         List<Component> pages = buildPages(waypoints, header);
         meta.pages(pages);
+        book.setItemMeta(meta);
+        return book;
+    }
+
+    private ItemStack buildCancelBook(int remainingTicks) {
+        ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+        BookMeta meta = (BookMeta) book.getItemMeta();
+        if (meta == null) {
+            return null;
+        }
+        meta.title(Component.text("传送进行中", NamedTextColor.RED));
+        meta.author(Component.text("AetherGate", NamedTextColor.WHITE));
+        int seconds = Math.max(0, (int) Math.ceil(Math.max(0, remainingTicks) / 20.0));
+        Component page = Component.text()
+                .append(centerLine("传送进行中", NamedTextColor.DARK_RED, true))
+                .append(Component.newline())
+                .append(centerLine("剩余时间: ~" + seconds + "s", NamedTextColor.GRAY, false))
+                .append(Component.newline())
+                .append(Component.newline())
+                .append(centerLine("如需中止，点击下方", NamedTextColor.BLACK, false))
+                .append(Component.newline())
+                .append(centerLine("[终止仪式]", NamedTextColor.RED, true)
+                        .clickEvent(ClickEvent.runCommand("/aether cancel"))
+                        .hoverEvent(HoverEvent.showText(Component.text("点击中止传送", NamedTextColor.RED))))
+                .build();
+        meta.pages(List.of(page));
         book.setItemMeta(meta);
         return book;
     }

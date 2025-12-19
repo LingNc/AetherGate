@@ -53,7 +53,7 @@ public class AetherGatePlugin extends JavaPlugin {
         this.altarService = new AltarService(this);
         altarService.loadExistingAltars();
         this.teleportService = new TeleportService(this, altarService);
-        this.teleportMenuService = new TeleportMenuService(this, altarService);
+        this.teleportMenuService = new TeleportMenuService(this, altarService, teleportService);
         getServer().getPluginManager().registerEvents(new CraftingProtectionListener(), this);
         getServer().getPluginManager().registerEvents(new RecipeUnlockListener(), this);
         getServer().getPluginManager().registerEvents(new DeathMessageListener(), this);
