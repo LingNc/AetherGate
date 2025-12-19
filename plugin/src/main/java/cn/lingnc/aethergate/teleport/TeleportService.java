@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Handles the multi-phase teleport ritual, including locking players, particle playback,
@@ -42,6 +44,7 @@ public class TeleportService {
     private final AltarService altarService;
     private final PearlCostManager costManager;
     private final Map<UUID, TeleportTask> activeTasks = new HashMap<>();
+    private final Set<UUID> globalLockedEntities = ConcurrentHashMap.newKeySet();
     private final Random random = new Random();
 
     public TeleportService(AetherGatePlugin plugin, AltarService altarService) {
@@ -79,6 +82,12 @@ public class TeleportService {
             player.sendMessage("§c祭坛处于休眠状态，请先重新充能。");
             return false;
         }
+        Entity rootEntity = findRootVehicle(player);
+        UUID rootId = rootEntity.getUniqueId();
+        if (globalLockedEntities.contains(rootId)) {
+            player.sendMessage("§c该实体正在被另一个传送占用。");
+            return false;
+        }
         Location destinationBlockLoc = getBlockLocation(destinationRequest);
         if (destinationBlockLoc == null) {
             player.sendMessage("§c目标锚点不存在于世界中。");
@@ -99,7 +108,7 @@ public class TeleportService {
             return false;
         }
         TeleportTask task = new TeleportTask(player, originBlock.getLocation(), originWaypoint,
-                liveDestination, arrivalSpot);
+                liveDestination, arrivalSpot, rootId);
         activeTasks.put(uuid, task);
         task.runTaskTimer(plugin, 0L, 1L);
         return true;
@@ -151,6 +160,14 @@ public class TeleportService {
                 && a.getBlockZ() == b.getBlockZ();
     }
 
+    private Entity findRootVehicle(Entity entity) {
+        Entity current = entity;
+        while (current.getVehicle() != null) {
+            current = current.getVehicle();
+        }
+        return current;
+    }
+
     private Location findArrivalSpot(Waypoint destination) {
         World world = Bukkit.getWorld(destination.getWorldName());
         if (world == null) {
@@ -198,12 +215,13 @@ public class TeleportService {
         private final boolean prevInvulnerable;
         private final float prevWalkSpeed;
         private final float prevFlySpeed;
+        private final UUID lockedRoot;
         private boolean performedTeleport = false;
         private boolean internalTeleporting = false;
         private int tick = 0;
 
         TeleportTask(Player player, Location originBlockLoc, Waypoint origin,
-                     Waypoint destination, Location arrival) {
+                     Waypoint destination, Location arrival, UUID lockedRoot) {
             this.player = player;
             this.originBlockLoc = originBlockLoc.clone();
             this.destination = destination;
@@ -212,6 +230,8 @@ public class TeleportService {
             this.prevInvulnerable = player.isInvulnerable();
             this.prevWalkSpeed = player.getWalkSpeed();
             this.prevFlySpeed = player.getFlySpeed();
+            this.lockedRoot = lockedRoot;
+            globalLockedEntities.add(lockedRoot);
             applyLock();
             player.sendMessage("§f>> §b以太能量锁定，保持冷静……");
             player.playSound(lockPoint, Sound.BLOCK_RESPAWN_ANCHOR_AMBIENT, 0.8f, 1.1f);
@@ -419,6 +439,9 @@ public class TeleportService {
             player.setWalkSpeed(prevWalkSpeed);
             player.setFlySpeed(prevFlySpeed);
             PotionUtil.clearLockEffects(player);
+            if (lockedRoot != null) {
+                globalLockedEntities.remove(lockedRoot);
+            }
         }
 
         Location getLockPoint() {
