@@ -7,6 +7,7 @@
    - feat/<功能名>： 临时分支用于新功能开发
    - fix/<修复名>：临时分支用于紧急修复
 2. 开发新功能
+需要时对大型任务进行拆分，依次使用不同的特性分支完成整体的开发。
 ```bash
 # 检查仓库状态
 git status -sb
@@ -17,7 +18,7 @@ git commit -m "feat: 中文描述...本次开发进度"
 git commit -m "feat: 中文描述...本次开发进度"
 # 开发完成之后进入合成
 ```
-3. 合并功能
+1. 合并功能
 ```bash
 git checkout develop
 git merge --no-ff feat/<功能名>
@@ -25,7 +26,7 @@ git merge --no-ff feat/<功能名>
 git branch -d feat/<功能名>
 # 继续开发新功能或者结束开发...
 ```
-4. 发布版本：当develop上累积了足够的更新，合并到main（请排除todos中的fix和plan文件夹），打标签
+1. 发布版本：当develop上累积了足够的更新，合并到main（请排除todos中的fix和plan文件夹），打标签
 ```bash
 # 1. 切换到 main 分支
 git checkout main
