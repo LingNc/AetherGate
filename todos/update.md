@@ -181,3 +181,8 @@ Teleport safety: per-entity landing is validated against solids (with fallback t
 Resilience: added Regeneration during warmup and clear it on cleanup.
 #### fix 3
 rewrote consumePearls in PearlCostManager to an ingot-first smart deduction (ingots for bulk, pearls for remainder, auto-break ingot for change) with a shared takeItems helper. hasEnoughPearls unchanged.
+### plan 6
+Reworked TeleportService to use a double-helix particle system: warmup now rises from feet to head with paired END_ROD/ENCHANT strands, and companion entities get scaled helices.
+Arrival preview now grows a descending helix over 30 ticks, with offsets for accompanying entities.
+Departure burst renders a tall twin-spiral launch with a rocket sound; arrival burst is now an imploding ring with inward velocity and enderman sound.
+Added cancel dissipate effect plus a reusable spawnParticleAt helper; preview window constant set to 30 ticks.
