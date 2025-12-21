@@ -6,6 +6,7 @@ import cn.lingnc.aethergate.altar.AltarStructureChecker;
 import cn.lingnc.aethergate.altar.AltarValidationResult;
 import cn.lingnc.aethergate.model.Waypoint;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -791,7 +792,7 @@ public class TeleportService {
         private void spawnArrivalShockwave(World world, Location center) {
             world.spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
             world.spawnParticle(Particle.EXPLOSION, center, 40, 2.0, 0.5, 2.0, 0.05);
-            world.spawnParticle(Particle.FLASH, center, 1);
+            world.spawnParticle(Particle.FLASH, center, 1, Color.WHITE);
             world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
         }
 
