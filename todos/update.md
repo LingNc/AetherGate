@@ -197,3 +197,7 @@ Non-player living entities get 2 seconds of no-damage ticks after teleport to pr
 Added TeleportService.shutdown() to abort all active teleports and clear lock sets, and call it from AetherGatePlugin.onDisable() so invulnerability/locks are cleared on reload/shutdown.
 #### fix 3
 增加清除保护状态命令。
+### plan 8 update 1.21.10
+更新API到1.21.10
+#### fix 1
+Added Color.WHITE to the Particle.FLASH spawn in TeleportService.spawnArrivalShockwave, satisfying 1.21.10’s requirement for colored FLASH particles; reintroduced the Color import.
