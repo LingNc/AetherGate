@@ -4,7 +4,7 @@
   <groupId>cn.lingnc</groupId>
   <artifactId>aether-gate</artifactId>
   <name>AetherGate</name>
-  <version>1.5.0</version>
+  <version>1.6.0</version>
   <build>
     <plugins>
       <plugin>
@@ -39,7 +39,7 @@
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>1.21.4-R0.1-SNAPSHOT</version>
+      <version>1.21.10-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
     <dependency>

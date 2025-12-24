@@ -29,13 +29,16 @@ Right-click the 'World Anchor' with mineral blocks (e.g., Copper Block, Iron Blo
 Each teleportation consumes Ender Pearls (per player, per trip). If no pearls are detected anywhere, the teleportation will be refused. The altar will prioritize consuming Ender Ingots or Ender Pearls from the Barrel beneath the 'World Anchor'. If none are found there, it will search for pearls in containers within the altar's 5x5 range (prioritizing Ender Pearls; if none are found, it will automatically decompose Ender Ingots). Finally, if still not found, it will look for pearls in the player's inventory to consume.
 
 ### Teleportation
-Right-click the central Conduit to open the Book GUI. It displays the current anchor's name, remaining teleport charges, charge status, and available destinations. Click the corresponding teleport button to travel.
+Right-click the central Conduit to open the book GUI. It displays the current anchor's name, remaining teleportation charges, charging status, and available destinations. Click the corresponding teleport button to travel. During the waiting period before a successful teleport, you can open the altar interface at any time to click "Cancel Teleport."
 
 ### Naming
 Right-click the 'World Anchor' with a renamed Name Tag to change the current anchor's name for easier identification during teleportation.
 
 ### Depletion
 If charges are not replenished in time, after the final teleportation, the altar will dim and the light-emitting blocks at the four corners will be destroyed. However, the altar can still receive teleports from other altars. Please replace the light-emitting blocks before initiating a teleport from this altar again; otherwise, an explosion will occur due to the incomplete structure.
+
+### Features
+Since v1.6.0, teleporting players will lock onto unowned entities or the player's pets within the altar range to teleport them along. Each additional entity increases the cost by one Ender Pearl, though dropped items do not consume pearls.
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
